@@ -80,3 +80,6 @@ CREATE TABLE IF NOT EXISTS sanctions (
   log_details TEXT,
   FOREIGN KEY (ordre_blocage_id) REFERENCES ordres_blocage(id)
 );
+
+-- Correction : ajout nb_lignes si absent
+ALTER TABLE cdr_files ADD COLUMN IF NOT EXISTS nb_lignes INT DEFAULT 0;

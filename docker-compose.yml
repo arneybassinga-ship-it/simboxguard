@@ -1,27 +1,39 @@
-version: '3.9'
 services:
   mysql:
     image: mysql:8.0
     container_name: soutenance_mysql
     restart: unless-stopped
+
     environment:
       MYSQL_ROOT_PASSWORD: rootpassword
       MYSQL_DATABASE: soutenance
+
     ports:
-      - '3310:3306'
+      - "3310:3306"
+
     volumes:
       - mysql-data:/var/lib/mysql
       - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
 
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   backend:
     build:
       context: ./backend
-      dockerfile: Dockerfile
+
     container_name: soutenance_backend
+
     depends_on:
-      - mysql
+      mysql:
+        condition: service_healthy
+
     ports:
-      - '4000:4000'
+      - "4000:4000"
+
     environment:
       MYSQL_HOST: mysql
       MYSQL_PORT: 3306
@@ -29,8 +41,8 @@ services:
       MYSQL_PASSWORD: rootpassword
       MYSQL_DATABASE: soutenance
       PORT: 4000
-    volumes:
-      - ./backend:/usr/src/app
+
+    restart: unless-stopped
 
 volumes:
   mysql-data:

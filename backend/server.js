@@ -248,7 +248,7 @@ app.post('/api/cdr/upload', upload.single('file'), async (req, res) => {
     }
 
     await conn.commit();
-    res.status(201).json({ cdr_id: cdrId, analyses });
+    res.status(201).json({ cdr_id: cdrId, nb_lignes: rows.length, nb_analyses: analyses.length, analyses });
 
   } catch (err) {
     await conn.rollback();
