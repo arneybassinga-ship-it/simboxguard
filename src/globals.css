@@ -1,0 +1,70 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 224.3 76.3% 48%;
+    --radius: 2rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-white/5;
+  }
+  body {
+    @apply bg-[#0a1128] text-white antialiased font-sans;
+  }
+}
+
+/* Style des Libellés (comme sur l'image) */
+.tech-label {
+  @apply text-[10px] font-bold text-slate-500 uppercase tracking-[0.25em] mb-2 block;
+}
+
+/* Cartes style Image */
+.glass-card {
+  @apply bg-[#111936]/60 backdrop-blur-2xl border border-white/10 rounded-[40px] shadow-2xl;
+}
+
+/* Tableaux style Image */
+.glass-table th {
+  @apply py-5 px-6 text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] border-b border-white/5;
+}
+
+.glass-table td {
+  @apply py-5 px-6 text-sm text-slate-300 border-b border-white/5;
+}
+
+/* Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
