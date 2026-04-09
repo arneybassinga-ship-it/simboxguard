@@ -1,17 +1,9 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Role, Operator } from '../../types';
+import { User } from '../../types';
 import { 
-  LayoutDashboard, 
-  FileUp, 
-  ShieldAlert, 
-  FileText, 
-  LogOut, 
-  Bell,
-  User as UserIcon,
-  Activity,
-  Ban,
-  ChevronRight
+  LayoutDashboard, FileUp, ShieldAlert, FileText, 
+  LogOut, Bell, User as UserIcon, Activity, Ban, ChevronRight
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -30,75 +22,46 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
     navigate('/');
   };
 
-  // Configuration des thèmes par rôle/opérateur (Couleurs plus intenses)
   const getThemeConfig = () => {
-    if (user.role === 'AGENT_MTN') {
-      return {
-        sidebarBg: "bg-blue-900/40",
-        sidebarBorder: "border-blue-500/30",
-        primary: "text-yellow-400",
-        accent: "bg-yellow-400/20 border-yellow-400/30",
-        glow1: "bg-blue-600/30",
-        glow2: "bg-yellow-500/20",
-        navActive: "bg-yellow-400/20 text-yellow-400 border-yellow-400/30 shadow-[0_0_20px_rgba(250,204,21,0.2)]",
-        badge: "bg-yellow-400/10 text-yellow-400 border-yellow-400/30",
-        headerBorder: "border-blue-500/20",
-        iconColor: "text-blue-400"
-      };
-    }
-    if (user.role === 'AGENT_AIRTEL') {
-      return {
-        sidebarBg: "bg-red-950/40",
-        sidebarBorder: "border-red-500/30",
-        primary: "text-white",
-        accent: "bg-white/10 border-white/20",
-        glow1: "bg-red-600/30",
-        glow2: "bg-white/10",
-        navActive: "bg-white/10 text-white border-white/30 shadow-[0_0_20px_rgba(255,255,255,0.1)]",
-        badge: "bg-white/10 text-white border-white/20",
-        headerBorder: "border-red-500/20",
-        iconColor: "text-red-500"
-      };
-    }
-    if (user.role === 'ANALYSTE') {
-      return {
-        sidebarBg: "bg-amber-950/40",
-        sidebarBorder: "border-yellow-500/30",
-        primary: "text-yellow-500",
-        accent: "bg-yellow-500/20 border-yellow-500/30",
-        glow1: "bg-yellow-600/30",
-        glow2: "bg-orange-500/20",
-        navActive: "bg-yellow-500/20 text-yellow-500 border-yellow-500/30 shadow-[0_0_20px_rgba(234,179,8,0.2)]",
-        badge: "bg-yellow-500/10 text-yellow-500 border-yellow-500/20",
-        headerBorder: "border-yellow-500/20",
-        iconColor: "text-yellow-500"
-      };
-    }
-    if (user.role === 'ARPCE') {
-      return {
-        sidebarBg: "bg-red-950/60",
-        sidebarBorder: "border-red-800/40",
-        primary: "text-green-400",
-        accent: "bg-green-500/20 border-green-500/30",
-        glow1: "bg-red-900/40",
-        glow2: "bg-green-600/20",
-        navActive: "bg-green-500/20 text-green-400 border-green-500/30 shadow-[0_0_20px_rgba(34,197,94,0.2)]",
-        badge: "bg-green-500/10 text-green-500 border-green-500/20",
-        headerBorder: "border-red-900/30",
-        iconColor: "text-red-600"
-      };
-    }
+    if (user.role === 'AGENT_MTN') return {
+      sidebarBg: "bg-blue-900/40", sidebarBorder: "border-blue-500/30",
+      primary: "text-yellow-400", accent: "bg-yellow-400/20 border-yellow-400/30",
+      glow1: "bg-blue-600/30", glow2: "bg-yellow-500/20",
+      navActive: "bg-yellow-400/20 text-yellow-400 border-yellow-400/30 shadow-[0_0_20px_rgba(250,204,21,0.2)]",
+      badge: "bg-yellow-400/10 text-yellow-400 border-yellow-400/30",
+      headerBorder: "border-blue-500/20", iconColor: "text-blue-400"
+    };
+    if (user.role === 'AGENT_AIRTEL') return {
+      sidebarBg: "bg-red-950/40", sidebarBorder: "border-red-500/30",
+      primary: "text-white", accent: "bg-white/10 border-white/20",
+      glow1: "bg-red-600/30", glow2: "bg-white/10",
+      navActive: "bg-white/10 text-white border-white/30 shadow-[0_0_20px_rgba(255,255,255,0.1)]",
+      badge: "bg-white/10 text-white border-white/20",
+      headerBorder: "border-red-500/20", iconColor: "text-red-500"
+    };
+    if (user.role === 'ANALYSTE') return {
+      sidebarBg: "bg-amber-950/40", sidebarBorder: "border-yellow-500/30",
+      primary: "text-yellow-500", accent: "bg-yellow-500/20 border-yellow-500/30",
+      glow1: "bg-yellow-600/30", glow2: "bg-orange-500/20",
+      navActive: "bg-yellow-500/20 text-yellow-500 border-yellow-500/30 shadow-[0_0_20px_rgba(234,179,8,0.2)]",
+      badge: "bg-yellow-500/10 text-yellow-500 border-yellow-500/20",
+      headerBorder: "border-yellow-500/20", iconColor: "text-yellow-500"
+    };
+    if (user.role === 'ARPCE') return {
+      sidebarBg: "bg-red-950/60", sidebarBorder: "border-red-800/40",
+      primary: "text-green-400", accent: "bg-green-500/20 border-green-500/30",
+      glow1: "bg-red-900/40", glow2: "bg-green-600/20",
+      navActive: "bg-green-500/20 text-green-400 border-green-500/30 shadow-[0_0_20px_rgba(34,197,94,0.2)]",
+      badge: "bg-green-500/10 text-green-500 border-green-500/20",
+      headerBorder: "border-red-900/30", iconColor: "text-red-600"
+    };
     return {
-      sidebarBg: "bg-[#0f172a]/40",
-      sidebarBorder: "border-white/5",
-      primary: "text-blue-400",
-      accent: "bg-blue-500/20 border-blue-500/30",
-      glow1: "bg-blue-600/10",
-      glow2: "bg-indigo-600/10",
+      sidebarBg: "bg-[#0f172a]/40", sidebarBorder: "border-white/5",
+      primary: "text-blue-400", accent: "bg-blue-500/20 border-blue-500/30",
+      glow1: "bg-blue-600/10", glow2: "bg-indigo-600/10",
       navActive: "bg-blue-600/20 text-blue-400 border-blue-500/20",
       badge: "bg-blue-500/10 text-blue-500 border-blue-500/20",
-      headerBorder: "border-white/5",
-      iconColor: "text-blue-400"
+      headerBorder: "border-white/5", iconColor: "text-blue-400"
     };
   };
 
@@ -130,23 +93,44 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
     ],
   };
 
-  const currentMenu = menuItems[user.role] || [];
+  const currentMenu = menuItems[user.role as keyof typeof menuItems] || [];
 
   return (
-    <div className="min-h-screen bg-[#020617] text-white flex overflow-hidden font-sans relative">
-      {/* Background Glows Dynamiques (Plus intenses) */}
-      <div className={cn("absolute top-[-15%] left-[-15%] w-[60%] h-[60%] rounded-full blur-[150px] pointer-events-none transition-all duration-1000 opacity-60", theme.glow1)} />
-      <div className={cn("absolute bottom-[-15%] right-[-15%] w-[60%] h-[60%] rounded-full blur-[150px] pointer-events-none transition-all duration-1000 opacity-40", theme.glow2)} />
+    <div
+      className="bg-[#020617] text-white font-sans"
+      style={{
+        display: 'flex',
+        height: '100vh',
+        width: '100vw',
+        overflow: 'hidden',
+        position: 'relative',
+      }}
+    >
+      {/* Background Glows */}
+      <div className={cn("absolute top-[-15%] left-[-15%] w-[60%] h-[60%] rounded-full blur-[150px] pointer-events-none opacity-60", theme.glow1)} />
+      <div className={cn("absolute bottom-[-15%] right-[-15%] w-[60%] h-[60%] rounded-full blur-[150px] pointer-events-none opacity-40", theme.glow2)} />
 
-      {/* Sidebar (Teintée et Bordée) */}
-      <aside className={cn(
-        "w-72 backdrop-blur-3xl border-r flex flex-col z-20 shadow-[25px_0_60px_rgba(0,0,0,0.5)] transition-all duration-700",
-        theme.sidebarBg,
-        theme.sidebarBorder
-      )}>
+      {/* ===== SIDEBAR FIXE ===== */}
+      <aside
+        className={cn(
+          "backdrop-blur-3xl border-r flex flex-col z-20 shadow-[25px_0_60px_rgba(0,0,0,0.5)]",
+          theme.sidebarBg,
+          theme.sidebarBorder
+        )}
+        style={{
+          width: '288px',
+          minWidth: '288px',
+          maxWidth: '288px',
+          flexShrink: 0,
+          height: '100vh',
+          overflowY: 'auto',
+          overflowX: 'hidden',
+        }}
+      >
+        {/* Logo */}
         <div className="p-8 mb-4">
           <div className="flex items-center gap-3 mb-2">
-            <div className={cn("p-2 rounded-xl border transition-all duration-500 shadow-lg", theme.accent)}>
+            <div className={cn("p-2 rounded-xl border shadow-lg", theme.accent)}>
               <ShieldAlert className={cn("w-5 h-5", theme.primary)} />
             </div>
             <h1 className="text-lg font-bold tracking-tight">SimboxGuard</h1>
@@ -154,6 +138,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
           <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em]">Régulation ARPCE</p>
         </div>
 
+        {/* Navigation */}
         <nav className="flex-1 px-4 space-y-3">
           {currentMenu.map((item) => {
             const isActive = window.location.pathname === item.path;
@@ -163,8 +148,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
                 onClick={() => navigate(item.path)}
                 className={cn(
                   "w-full flex items-center justify-between px-5 py-4 rounded-2xl transition-all duration-500 group relative overflow-hidden",
-                  isActive 
-                    ? theme.navActive 
+                  isActive
+                    ? theme.navActive
                     : "text-slate-400 hover:bg-white/5 hover:text-white"
                 )}
               >
@@ -178,22 +163,27 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
           })}
         </nav>
 
+        {/* Profil + Déconnexion */}
         <div className="p-6 mt-auto">
           <div className="bg-black/20 rounded-[32px] p-6 border border-white/10 mb-4 shadow-2xl backdrop-blur-md">
             <div className="flex items-center gap-4 mb-5">
-              <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center shadow-2xl transition-all duration-500 border border-white/10", 
-                user.role === 'AGENT_MTN' ? "bg-blue-600 shadow-blue-500/20" : 
-                user.role === 'AGENT_AIRTEL' ? "bg-red-600 shadow-red-500/20" : 
-                user.role === 'ANALYSTE' ? "bg-yellow-500 shadow-yellow-500/20" : "bg-red-900 shadow-red-900/20")}>
+              <div className={cn(
+                "w-12 h-12 rounded-2xl flex items-center justify-center shadow-2xl border border-white/10 flex-shrink-0",
+                user.role === 'AGENT_MTN' ? "bg-blue-600" :
+                user.role === 'AGENT_AIRTEL' ? "bg-red-600" :
+                user.role === 'ANALYSTE' ? "bg-yellow-500" : "bg-red-900"
+              )}>
                 <UserIcon size={20} className="text-white" />
               </div>
-              <div className="overflow-hidden">
+              <div style={{ minWidth: 0 }}>
                 <p className="text-sm font-black truncate text-white">{user.nom}</p>
-                <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest">{user.role.replace('_', ' ')}</p>
+                <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest">
+                  {user.role?.replace('_', ' ')}
+                </p>
               </div>
             </div>
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               className="w-full justify-start text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-xl h-11 text-xs font-black uppercase tracking-widest"
               onClick={handleLogout}
             >
@@ -204,29 +194,45 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
         </div>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col relative z-10 overflow-hidden">
-        <header className={cn(
-          "h-24 bg-transparent px-10 flex items-center justify-between border-b transition-all duration-700",
-          theme.headerBorder
-        )}>
+      {/* ===== CONTENU PRINCIPAL ===== */}
+      <main
+        className="relative z-10"
+        style={{
+          flex: 1,
+          minWidth: 0,
+          height: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+        }}
+      >
+        {/* Header fixe */}
+        <header
+          className={cn("bg-transparent px-10 flex items-center justify-between border-b", theme.headerBorder)}
+          style={{
+            height: '96px',
+            flexShrink: 0,
+          }}
+        >
           <div>
             <h2 className="text-2xl font-black text-white tracking-tighter uppercase">{title}</h2>
             <div className="flex items-center gap-2 mt-1">
-              <div className={cn("w-2 h-2 rounded-full animate-pulse shadow-[0_0_10px_rgba(255,255,255,0.5)]", 
-                user.role === 'AGENT_MTN' ? "bg-yellow-400" : 
-                user.role === 'AGENT_AIRTEL' ? "bg-white" : 
-                user.role === 'ANALYSTE' ? "bg-yellow-500" : "bg-green-400")} />
+              <div className={cn(
+                "w-2 h-2 rounded-full animate-pulse",
+                user.role === 'AGENT_MTN' ? "bg-yellow-400" :
+                user.role === 'AGENT_AIRTEL' ? "bg-white" :
+                user.role === 'ANALYSTE' ? "bg-yellow-500" : "bg-green-400"
+              )} />
               <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em]">
                 {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
               </p>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-6">
             {user.operateur && (
               <div className={cn(
-                "px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-[0.3em] border shadow-2xl transition-all duration-700",
+                "px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-[0.3em] border shadow-2xl",
                 theme.badge
               )}>
                 Réseau {user.operateur}
@@ -234,15 +240,25 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
             )}
             <button className="relative p-3 bg-white/5 rounded-2xl border border-white/10 text-slate-400 hover:text-white transition-all hover:scale-110 shadow-xl">
               <Bell size={22} />
-              <span className={cn("absolute top-3 right-3 w-3 h-3 rounded-full border-2 border-[#020617] shadow-sm", 
-                user.role === 'AGENT_MTN' ? "bg-yellow-400" : 
-                user.role === 'AGENT_AIRTEL' ? "bg-white" : 
-                user.role === 'ANALYSTE' ? "bg-yellow-500" : "bg-green-400")}></span>
+              <span className={cn(
+                "absolute top-3 right-3 w-3 h-3 rounded-full border-2 border-[#020617]",
+                user.role === 'AGENT_MTN' ? "bg-yellow-400" :
+                user.role === 'AGENT_AIRTEL' ? "bg-white" :
+                user.role === 'ANALYSTE' ? "bg-yellow-500" : "bg-green-400"
+              )} />
             </button>
           </div>
         </header>
 
-        <div className="flex-1 p-10 overflow-y-auto custom-scrollbar">
+        {/* Zone scrollable */}
+        <div
+          style={{
+            flex: 1,
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            padding: '2.5rem',
+          }}
+        >
           <div className="max-w-7xl mx-auto animate-in fade-in slide-in-from-bottom-6 duration-1000">
             {children}
           </div>
