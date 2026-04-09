@@ -332,3 +332,234 @@ const port = process.env.PORT || 4000;
 app.listen(port, () => {
   console.log(`Serveur démarré sur http://localhost:${port}`);
 });
+// GET /api/cdr/files — liste des fichiers CDR importés
+app.get('/api/cdr/files', async (req, res) => {
+  const conn = await pool.getConnection();
+  try {
+    const [rows] = await conn.query(
+      'SELECT * FROM cdr_files ORDER BY date_import DESC'
+    );
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  } finally {
+    conn.release();
+  }
+});
+
+// GET /api/cdr/analyses — liste des analyses SIM
+app.get('/api/cdr/analyses', async (req, res) => {
+  const conn = await pool.getConnection();
+  try {
+    const [rows] = await conn.query(
+      'SELECT * FROM sim_analyses ORDER BY date_analyse DESC'
+    );
+    res.json(rows.map(r => ({
+      ...r,
+      criteres: typeof r.criteres === 'string' ? JSON.parse(r.criteres) : r.criteres
+    })));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  } finally {
+    conn.release();
+  }
+});
+
+// GET /api/rapports — liste des rapports
+app.get('/api/rapports', async (req, res) => {
+  const { role, operateur } = req.query;
+  const conn = await pool.getConnection();
+  try {
+    let query = 'SELECT * FROM rapports WHERE 1=1';
+    const params = [];
+    if (role) { query += ' AND destinataire_role = ?'; params.push(role); }
+    if (operateur) { query += ' AND operateur = ?'; params.push(operateur); }
+    query += ' ORDER BY date_envoi DESC';
+    const [rows] = await conn.query(query, params);
+    res.json(rows.map(r => ({
+      ...r,
+      contenu_json: typeof r.contenu_json === 'string'
+        ? JSON.parse(r.contenu_json)
+        : r.contenu_json
+    })));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  } finally {
+    conn.release();
+  }
+});
+
+// GET /api/ordres — liste des ordres de blocage
+app.get('/api/ordres', async (req, res) => {
+  const conn = await pool.getConnection();
+  try {
+    const [rows] = await conn.query(
+      'SELECT * FROM ordres_blocage ORDER BY date_emission DESC'
+    );
+    res.json(rows.map(r => ({
+      ...r,
+      liste_sim_json: typeof r.liste_sim_json === 'string'
+        ? JSON.parse(r.liste_sim_json)
+        : r.liste_sim_json,
+      delai_restant_heures: Math.max(
+        0,
+        Math.round((new Date(r.date_limite) - new Date()) / 3600000)
+      )
+    })));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  } finally {
+    conn.release();
+  }
+});
+
+// GET /api/sanctions — liste des sanctions
+app.get('/api/sanctions', async (req, res) => {
+  const conn = await pool.getConnection();
+  try {
+    const [rows] = await conn.query(
+      'SELECT * FROM sanctions ORDER BY date_sanction DESC'
+    );
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  } finally {
+    conn.release();
+  }
+});
+
+// GET /api/cdr/files
+app.get('/api/cdr/files', async (req, res) => {
+  const conn = await pool.getConnection();
+  try {
+    const [rows] = await conn.query('SELECT * FROM cdr_files ORDER BY date_import DESC');
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+  finally { conn.release(); }
+});
+
+// GET /api/cdr/analyses
+app.get('/api/cdr/analyses', async (req, res) => {
+  const conn = await pool.getConnection();
+  try {
+    const [rows] = await conn.query('SELECT * FROM sim_analyses ORDER BY date_analyse DESC');
+    res.json(rows.map(r => ({
+      ...r,
+      criteres: typeof r.criteres === 'string' ? JSON.parse(r.criteres) : r.criteres
+    })));
+  } catch (err) { res.status(500).json({ error: err.message }); }
+  finally { conn.release(); }
+});
+
+// GET /api/rapports
+app.get('/api/rapports', async (req, res) => {
+  const { role, operateur } = req.query;
+  const conn = await pool.getConnection();
+  try {
+    let query = 'SELECT * FROM rapports WHERE 1=1';
+    const params = [];
+    if (role) { query += ' AND destinataire_role = ?'; params.push(role); }
+    if (operateur) { query += ' AND operateur = ?'; params.push(operateur); }
+    query += ' ORDER BY date_envoi DESC';
+    const [rows] = await conn.query(query, params);
+    res.json(rows.map(r => ({
+      ...r,
+      contenu_json: typeof r.contenu_json === 'string' ? JSON.parse(r.contenu_json) : r.contenu_json
+    })));
+  } catch (err) { res.status(500).json({ error: err.message }); }
+  finally { conn.release(); }
+});
+
+// GET /api/ordres
+app.get('/api/ordres', async (req, res) => {
+  const conn = await pool.getConnection();
+  try {
+    const [rows] = await conn.query('SELECT * FROM ordres_blocage ORDER BY date_emission DESC');
+    res.json(rows.map(r => ({
+      ...r,
+      liste_sim_json: typeof r.liste_sim_json === 'string' ? JSON.parse(r.liste_sim_json) : r.liste_sim_json,
+      delai_restant_heures: Math.max(0, Math.round((new Date(r.date_limite) - new Date()) / 3600000))
+    })));
+  } catch (err) { res.status(500).json({ error: err.message }); }
+  finally { conn.release(); }
+});
+
+// PATCH /api/ordres/:id/bloquer
+app.patch('/api/ordres/:id/bloquer', async (req, res) => {
+  const conn = await pool.getConnection();
+  try {
+    await conn.query("UPDATE ordres_blocage SET statut = 'bloque' WHERE id = ?", [req.params.id]);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+  finally { conn.release(); }
+});
+
+// POST /api/ordres/bloquer
+app.post('/api/ordres/bloquer', async (req, res) => {
+  const { rapport_id, operateur, liste_sim, delai_heures = 48 } = req.body;
+  const conn = await pool.getConnection();
+  try {
+    const { v4: uuidv4 } = require('uuid');
+    const ordreId = uuidv4();
+    const dateLimite = new Date(Date.now() + delai_heures * 3600 * 1000);
+    await conn.query(
+      'INSERT INTO ordres_blocage (id, rapport_id, operateur, liste_sim_json, delai_heures, date_limite) VALUES (?, ?, ?, ?, ?, ?)',
+      [ordreId, rapport_id, operateur, JSON.stringify(liste_sim), delai_heures, dateLimite]
+    );
+    res.json({ success: true, ordre_id: ordreId, date_limite: dateLimite });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+  finally { conn.release(); }
+});
+
+// POST /api/rapports/envoyer-agent
+app.post('/api/rapports/envoyer-agent', async (req, res) => {
+  const { operateur } = req.body;
+  if (!['MTN', 'AIRTEL'].includes(operateur)) return res.status(400).json({ error: 'Opérateur invalide' });
+  const conn = await pool.getConnection();
+  try {
+    const { v4: uuidv4 } = require('uuid');
+    const [sims] = await conn.query(
+      "SELECT * FROM sim_analyses WHERE operateur = ? AND statut = 'confirmee'", [operateur]
+    );
+    const rapportId = uuidv4();
+    const contenu = { titre: `Analyse CDR — ${operateur}`, date: new Date().toISOString(), operateur, analyses: sims, total: sims.length };
+    await conn.query(
+      'INSERT INTO rapports (id, type, expediteur_role, destinataire_role, operateur, contenu_json) VALUES (?, ?, ?, ?, ?, ?)',
+      [rapportId, 'cdr', 'analyste_fraude', `agent_${operateur.toLowerCase()}`, operateur, JSON.stringify(contenu)]
+    );
+    res.json({ success: true, rapport_id: rapportId, operateur });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+  finally { conn.release(); }
+});
+
+// GET /api/sanctions
+app.get('/api/sanctions', async (req, res) => {
+  const conn = await pool.getConnection();
+  try {
+    const [rows] = await conn.query('SELECT * FROM sanctions ORDER BY date_sanction DESC');
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+  finally { conn.release(); }
+});
+
+// POST /api/sanctions/avertir
+app.post('/api/sanctions/avertir', async (req, res) => {
+  const { ordre_id, operateur } = req.body;
+  const conn = await pool.getConnection();
+  try {
+    const { v4: uuidv4 } = require('uuid');
+    const [[ordre]] = await conn.query('SELECT * FROM ordres_blocage WHERE id = ?', [ordre_id]);
+    if (!ordre) throw new Error('Ordre introuvable');
+    if (new Date() < new Date(ordre.date_limite)) return res.status(400).json({ error: 'Délai pas encore dépassé' });
+    await conn.query("UPDATE ordres_blocage SET statut = 'depasse' WHERE id = ?", [ordre_id]);
+    const sanctionId = uuidv4();
+    const emailCible = operateur === 'MTN' ? 'agent_mtn@operateur.cg' : 'agent_airtel@operateur.cg';
+    await conn.query(
+      "INSERT INTO sanctions (id, ordre_blocage_id, operateur, type, email_envoye, log_details) VALUES (?, ?, ?, 'avertissement', ?, ?)",
+      [sanctionId, ordre_id, operateur, emailCible, `Avertissement envoyé le ${new Date().toISOString()} — SIM non bloquée dans le délai`]
+    );
+    console.log(`[SANCTION] Email → ${emailCible}`);
+    res.json({ success: true, sanction_id: sanctionId, email_envoye: emailCible });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+  finally { conn.release(); }
+});

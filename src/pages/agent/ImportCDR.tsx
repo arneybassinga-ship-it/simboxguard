@@ -44,12 +44,10 @@ const ImportCDR = () => {
         body: data,
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Erreur API');
-      }
-
       const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || 'Erreur API');
+      }
 
       const interval = setInterval(() => {
         setProgress((prev) => {
