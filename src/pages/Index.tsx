@@ -75,7 +75,7 @@ const Index = () => {
                 <div className="p-2 bg-blue-500/20 rounded-xl border border-blue-500/30">
                   <ShieldAlert className="text-blue-400 w-6 h-6" />
                 </div>
-                <span className="text-blue-400 font-bold tracking-[0.3em] text-xs uppercase">SimboxGuard</span>
+                <span className="text-blue-400 font-bold tracking-[0.3em] text-xs uppercase">SIMVigil</span>
               </div>
               <h1 className="text-4xl font-bold text-white mb-3 tracking-tight">
                 {step === 'login' ? 'Ravi de vous revoir' : 'Vérification'}
@@ -191,7 +191,7 @@ const Index = () => {
                     <ShieldAlert className="w-20 h-20 text-blue-500 drop-shadow-[0_0_20px_rgba(59,130,246,0.5)]" />
                   </div>
                 </div>
-                <h2 className="text-3xl font-bold text-white mb-4 tracking-tight">SimboxGuard AI</h2>
+                <h2 className="text-3xl font-bold text-white mb-4 tracking-tight">SIMVigil — Détection Fraude Télécom</h2>
                 <p className="text-slate-500 text-sm max-w-[300px] leading-relaxed font-medium">
                   Détection avancée des fraudes télécoms par analyse comportementale des flux CDR en temps réel.
                 </p>
