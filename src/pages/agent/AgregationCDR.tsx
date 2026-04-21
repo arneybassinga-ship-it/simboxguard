@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { showSuccess, showError } from '../../utils/toast';
 import { User } from '../../types';
+import { apiUrl } from '../../lib/api';
 
 interface PreviewData {
   nb_fichiers: number;
@@ -46,7 +47,7 @@ const AgregationCDR = () => {
     setResult(null);
     try {
       const r = await fetch(
-        `http://localhost:4000/api/cdr/preview-agregation?operateur=${operateur}&date_debut=${dateDeb}&date_fin=${dateFin}`
+        `${apiUrl('/api/cdr/preview-agregation')}?operateur=${operateur}&date_debut=${dateDeb}&date_fin=${dateFin}`
       );
       const data = await r.json();
       if (!r.ok) throw new Error(data.error);
@@ -65,7 +66,7 @@ const AgregationCDR = () => {
     setLoading(true);
     setResult(null);
     try {
-      const r = await fetch('http://localhost:4000/api/cdr/agreger', {
+      const r = await fetch(apiUrl('/api/cdr/agreger'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -79,7 +80,7 @@ const AgregationCDR = () => {
       if (!r.ok) throw new Error(data.error);
       setResult(data);
       setPreview(null);
-      showSuccess(`Agrégation terminée — ${data.nb_sim_analysees} SIM analysées`);
+      showSuccess(`Agrégation terminée — ${data.nb_sim_analysees} MSISDN analysées`);
     } catch (err) {
       showError(err instanceof Error ? err.message : "Erreur lors de l'agrégation");
     } finally {
@@ -97,9 +98,9 @@ const AgregationCDR = () => {
           <div>
             <p className="text-sm font-bold text-blue-300 mb-1">Pourquoi agréger ?</p>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Chaque import CDR est analysé séparément. Une SIM qui fait peu d'appels suspects
+              Chaque import CDR est analysé séparément. Une MSISDN qui fait peu d'appels suspects
               sur chaque fichier peut passer inaperçue. L'agrégation <strong className="text-slate-300">regroupe
-              toutes les lignes de la période choisie</strong> et analyse chaque SIM sur l'ensemble
+              toutes les lignes de la période choisie</strong> et analyse chaque MSISDN sur l'ensemble
               des données cumulées — ce qui permet de détecter des comportements frauduleux
               progressifs.
             </p>
@@ -186,7 +187,7 @@ const AgregationCDR = () => {
                   <p className="text-2xl font-black text-yellow-400">
                     {preview.nb_sim_uniques.toLocaleString('fr-FR')}
                   </p>
-                  <p className="text-xs text-slate-400 mt-1">SIM uniques</p>
+                  <p className="text-xs text-slate-400 mt-1">MSISDN uniques</p>
                 </div>
               </div>
 
@@ -224,7 +225,7 @@ const AgregationCDR = () => {
                 </span>{' '}
                 analysées sur{' '}
                 <span className="text-white font-medium">
-                  {result.nb_sim_analysees} SIM uniques
+                  {result.nb_sim_analysees} MSISDN uniques
                 </span>
               </CardDescription>
             </CardHeader>
@@ -257,7 +258,7 @@ const AgregationCDR = () => {
                 <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg flex gap-2 items-start">
                   <AlertTriangle size={14} className="text-yellow-400 shrink-0 mt-0.5" />
                   <p className="text-xs text-yellow-300">
-                    <strong>{result.nb_critiques + result.nb_elevees} SIM suspecte(s)</strong> transmises
+                    <strong>{result.nb_critiques + result.nb_elevees} MSISDN suspecte(s)</strong> transmises
                     à l'analyste pour validation. Consultez "Mes Analyses" pour suivre l'évolution.
                   </p>
                 </div>

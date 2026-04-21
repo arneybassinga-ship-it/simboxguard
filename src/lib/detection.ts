@@ -3,7 +3,7 @@ import { differenceInDays, parseISO, getHours } from 'date-fns';
 
 export const analyzeSimActivity = (simNumber: string, lines: CDRLine[], cdrId: string): SimAnalysis => {
   const totalAppels = lines.length;
-  if (totalAppels === 0) throw new Error('Aucune donnée pour cette SIM');
+  if (totalAppels === 0) throw new Error('Aucune donnée pour cette MSISDN');
 
   const operateur = lines[0].operateur;
 

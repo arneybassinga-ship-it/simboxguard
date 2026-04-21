@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ShieldAlert, Clock, CheckCircle, AlertTriangle } from 'lucide-react';
 import { showSuccess, showError } from '../../utils/toast';
+import { apiUrl } from '../../lib/api';
 
 interface SimAnalysis {
   id: string; numero_sim: string; operateur: string; score_suspicion: number; statut: string;
@@ -27,8 +28,8 @@ const ArpceBlocking = () => {
 
   const loadData = () => {
     Promise.all([
-      fetch('http://localhost:4000/api/cdr/analyses').then(r => r.json()),
-      fetch('http://localhost:4000/api/ordres').then(r => r.json()),
+      fetch(apiUrl('/api/cdr/analyses')).then(r => r.json()),
+      fetch(apiUrl('/api/ordres')).then(r => r.json()),
     ]).then(([a, o]) => {
       setSims(a.filter((x: SimAnalysis) => x.statut === 'confirmee'));
       setOrdres(o);
@@ -37,14 +38,14 @@ const ArpceBlocking = () => {
   useEffect(() => { loadData(); }, []);
 
   const emettre = async () => {
-    if (selected.length === 0) return showError('Sélectionnez au moins une SIM');
+    if (selected.length === 0) return showError('Sélectionnez au moins une MSISDN');
     setBusy(true);
     try {
-      await fetch('http://localhost:4000/api/ordres/bloquer', {
+      await fetch(apiUrl('/api/ordres/bloquer'), {
         method: 'POST', headers: {'Content-Type':'application/json'},
         body: JSON.stringify({ operateur, liste_sim: selected, delai_heures: delai, rapport_id: 'manual' })
       });
-      showSuccess(`Ordre de blocage émis — ${selected.length} SIM(s)`);
+      showSuccess(`Ordre de blocage émis — ${selected.length} MSISDN`);
       setSelected([]); setModal(false); loadData();
     } catch { showError('Erreur émission ordre'); }
     setBusy(false);
@@ -71,7 +72,7 @@ const ArpceBlocking = () => {
 
       <div className="grid grid-cols-3 gap-4 mb-5">
         <div className="bg-red-50 rounded-2xl p-4">
-          <p className="text-xs text-slate-500 mb-1">SIM confirmées</p>
+          <p className="text-xs text-slate-500 mb-1">MSISDN confirmées</p>
           <p className="text-3xl font-bold text-red-600">{sims.length}</p>
         </div>
         <div className="bg-orange-50 rounded-2xl p-4">
@@ -100,7 +101,7 @@ const ArpceBlocking = () => {
                        o.statut==='depasse' ? <AlertTriangle size={16} className="text-red-600"/> :
                        <Clock size={16} className="text-orange-600"/>}
                       <div>
-                        <p className="text-xs font-bold text-slate-700">{o.operateur} — {Array.isArray(o.liste_sim_json) ? o.liste_sim_json.length : '?'} SIM(s)</p>
+                        <p className="text-xs font-bold text-slate-700">{o.operateur} — {Array.isArray(o.liste_sim_json) ? o.liste_sim_json.length : '?'} MSISDN</p>
                         <p className="text-[10px] text-slate-400">Émis le {new Date(o.date_emission).toLocaleString('fr-FR')}</p>
                       </div>
                     </div>
@@ -137,11 +138,11 @@ const ArpceBlocking = () => {
             </div>
             <div className="mb-5">
               <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-2">
-                SIM à bloquer ({simsFiltered.length} disponibles)
+                MSISDN à bloquer ({simsFiltered.length} disponibles)
               </label>
               <div className="max-h-48 overflow-y-auto space-y-1 border border-slate-200 rounded-lg p-2">
                 {simsFiltered.length === 0
-                  ? <p className="text-slate-400 text-sm text-center py-4">Aucune SIM confirmée pour {operateur}</p>
+                  ? <p className="text-slate-400 text-sm text-center py-4">Aucune MSISDN confirmée pour {operateur}</p>
                   : simsFiltered.map(s => (
                   <label key={s.id} className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg cursor-pointer">
                     <input type="checkbox" checked={selected.includes(s.numero_sim)}
@@ -156,7 +157,7 @@ const ArpceBlocking = () => {
             <div className="flex gap-3">
               <Button onClick={emettre} disabled={busy||selected.length===0}
                 className="flex-1 bg-red-600 hover:bg-red-700 text-white">
-                {busy ? 'Émission...' : `Émettre l'ordre (${selected.length} SIM)`}
+                {busy ? 'Émission...' : `Émettre l'ordre (${selected.length} MSISDN)`}
               </Button>
               <Button variant="outline" onClick={() => setModal(false)} className="flex-1">Annuler</Button>
             </div>

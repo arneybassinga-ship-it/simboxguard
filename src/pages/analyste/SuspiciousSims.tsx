@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -6,14 +6,9 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { CheckCircle, XCircle, Filter } from 'lucide-react';
 import { showSuccess, showError } from '../../utils/toast';
-import { generateRapportAnalyseCDR } from '../../lib/generatePDF';
-
-interface SimAnalysis {
-  id: string; numero_sim: string; operateur: string;
-  score_suspicion: number; niveau_alerte: string;
-  statut: string; date_analyse: string; criteres: any;
-}
-const MOTIFS = ['Télévendeur professionnel','Call center légal','Volume exceptionnel ponctuel','Erreur de données CDR','SIM entreprise enregistrée','Autre (préciser)'];
+import type { SimAnalysis } from '../../types';
+import { apiUrl } from '../../lib/api';
+const MOTIFS = ['Télévendeur professionnel','Call center légal','Volume exceptionnel ponctuel','Erreur de données CDR','MSISDN entreprise enregistrée','Autre (préciser)'];
 
 const SuspiciousSims = () => {
   const [analyses, setAnalyses] = useState<SimAnalysis[]>([]);
@@ -27,7 +22,7 @@ const SuspiciousSims = () => {
 
   const fetch_ = () => {
     setLoading(true);
-    fetch('http://localhost:4000/api/cdr/analyses')
+    fetch(apiUrl('/api/cdr/analyses'))
       .then(r => r.json()).then(setAnalyses).finally(() => setLoading(false));
   };
   useEffect(() => { fetch_(); }, []);
@@ -42,13 +37,17 @@ const SuspiciousSims = () => {
   const confirmer = async (item: SimAnalysis) => {
     setBusy(true);
     try {
-      await fetch(`http://localhost:4000/api/cdr/analyses/${item.id}`, {
-        method: 'PATCH', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ statut: 'confirmee' })
+      const res = await fetch(apiUrl(`/api/cdr/analyses/${item.id}`), {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          statut: 'confirmee',
+          justificatif_confirmation: `Confirmé par l'analyste le ${new Date().toLocaleDateString('fr-FR')}`,
+        }),
       });
-      setAnalyses(p => p.map(a => a.id===item.id ? {...a, statut:'confirmee'} : a));
-      showSuccess(`SIM ${item.numero_sim} confirmée SimBox ✓`);
-    } catch { showError('Erreur confirmation'); }
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error); }
+      setAnalyses(p => p.map(a => a.id === item.id ? { ...a, statut: 'confirmee' } : a));
+      showSuccess(`MSISDN ${item.numero_sim} confirmée SimBox ✓`);
+    } catch (e) { showError(e instanceof Error ? e.message : 'Erreur confirmation'); }
     setBusy(false);
   };
 
@@ -56,19 +55,19 @@ const SuspiciousSims = () => {
     if (!modalRefus) return;
     setBusy(true);
     try {
-      await fetch(`http://localhost:4000/api/cdr/analyses/${modalRefus.id}`, {
+      await fetch(apiUrl(`/api/cdr/analyses/${modalRefus.id}`), {
         method: 'PATCH', headers: {'Content-Type':'application/json'},
         body: JSON.stringify({ statut: 'refusee', motif_refus: motif, details_refus: details })
       });
       setAnalyses(p => p.map(a => a.id===modalRefus.id ? {...a, statut:'refusee'} : a));
-      showSuccess('SIM classée faux positif');
+      showSuccess('MSISDN classée faux positif');
       setModalRefus(null); setDetails(''); setMotif(MOTIFS[0]);
     } catch { showError('Erreur refus'); }
     setBusy(false);
   };
 
   return (
-    <DashboardLayout title="SIMs Suspectes">
+    <DashboardLayout title="MSISDN suspectes">
       <div className="flex gap-2 mb-4 flex-wrap items-center">
         <Filter size={14} className="text-slate-400"/>
         {['tous','MTN','AIRTEL'].map(op => (
@@ -90,13 +89,13 @@ const SuspiciousSims = () => {
 
       <Card>
         <CardHeader><CardTitle className="text-lg">
-          SIMs en attente <span className="text-sm font-normal text-slate-400">({filtered.length})</span>
+          MSISDN en attente <span className="text-sm font-normal text-slate-400">({filtered.length})</span>
         </CardTitle></CardHeader>
         <CardContent>
           {loading ? <p className="text-slate-400">Chargement...</p> : (
             <Table>
               <TableHeader><TableRow>
-                <TableHead>SIM</TableHead><TableHead>Opérateur</TableHead>
+                <TableHead>MSISDN</TableHead><TableHead>Opérateur</TableHead>
                 <TableHead>Score</TableHead><TableHead>Niveau</TableHead>
                 <TableHead>Durée moy.</TableHead><TableHead>App/h</TableHead>
                 <TableHead>Actions</TableHead>
@@ -143,7 +142,7 @@ const SuspiciousSims = () => {
                   </TableRow>
                 )) : (
                   <TableRow><TableCell colSpan={7} className="text-center py-10 text-slate-400">
-                    Aucune SIM en attente.
+                    Aucune MSISDN en attente.
                   </TableCell></TableRow>
                 )}
               </TableBody>
@@ -156,7 +155,7 @@ const SuspiciousSims = () => {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
             <h2 className="text-lg font-bold text-slate-800 mb-1">Refuser l'alerte</h2>
-            <p className="text-sm text-slate-500 mb-4">SIM : <span className="font-mono font-bold">{modalRefus.numero_sim}</span></p>
+            <p className="text-sm text-slate-500 mb-4">MSISDN : <span className="font-mono font-bold">{modalRefus.numero_sim}</span></p>
             <div className="mb-4">
               <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-2">Motif</label>
               <select value={motif} onChange={e => setMotif(e.target.value)}

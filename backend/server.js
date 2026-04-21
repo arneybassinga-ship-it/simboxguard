@@ -29,6 +29,37 @@ const pool = mysql.createPool({
   connectionLimit: 10,
 });
 
+const ensureDatabaseSchema = async () => {
+  const conn = await pool.getConnection();
+  try {
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS simbox_detectees (
+        id VARCHAR(36) PRIMARY KEY,
+        periode_debut DATE NOT NULL,
+        periode_fin DATE NOT NULL,
+        operateur VARCHAR(20) NOT NULL,
+        agent_id VARCHAR(50) NOT NULL,
+        sims_json TEXT NOT NULL,
+        nb_sims INT NOT NULL,
+        similarite_moyenne FLOAT NOT NULL,
+        score_rotation FLOAT NOT NULL,
+        score_global INT NOT NULL,
+        niveau ENUM('suspect','probable','confirme') NOT NULL,
+        statut ENUM('en_attente','validee','rejetee') DEFAULT 'en_attente',
+        motif_rejet TEXT NULL,
+        contacts_communs_json TEXT NOT NULL,
+        date_detection DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await conn.query(`
+      CREATE INDEX IF NOT EXISTS idx_simbox_statut
+      ON simbox_detectees(statut)
+    `);
+  } finally {
+    conn.release();
+  }
+};
+
 /* ================= UPLOAD ================= */
 
 const upload = multer({
@@ -36,12 +67,328 @@ const upload = multer({
   limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB max
 });
 
+const normalizeColumnName = (value) => String(value ?? '')
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase()
+  .trim()
+  .replace(/[^\w]+/g, '_')
+  .replace(/^_+|_+$/g, '');
+
 const toDateTimeString = (value) => {
   if (!value) return null;
-  const date = new Date(value);
+  if (typeof value === 'number') {
+    const parsed = xlsx.SSF.parse_date_code(value);
+    if (!parsed) return null;
+    const date = new Date(Date.UTC(
+      parsed.y,
+      parsed.m - 1,
+      parsed.d,
+      parsed.H || 0,
+      parsed.M || 0,
+      parsed.S || 0,
+    ));
+    if (Number.isNaN(date.getTime())) return null;
+    return date.toISOString().slice(0, 19).replace('T', ' ');
+  }
+
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return null;
+    return value.toISOString().slice(0, 19).replace('T', ' ');
+  }
+
+  const raw = String(value).trim();
+  if (!raw) return null;
+
+  const compactMatch = raw.match(/^(\d{4})(\d{2})(\d{2})[ T]?(\d{2})(\d{2})(\d{2})$/);
+  if (compactMatch) {
+    const [, y, m, d, hh, mm, ss] = compactMatch;
+    return `${y}-${m}-${d} ${hh}:${mm}:${ss}`;
+  }
+
+  const dmyMatch = raw.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
+  if (dmyMatch) {
+    let [, d, m, y, hh = '00', mm = '00', ss = '00'] = dmyMatch;
+    if (y.length === 2) y = `20${y}`;
+    const date = new Date(
+      Number(y),
+      Number(m) - 1,
+      Number(d),
+      Number(hh),
+      Number(mm),
+      Number(ss),
+    );
+    if (!Number.isNaN(date.getTime())) {
+      return date.toISOString().slice(0, 19).replace('T', ' ');
+    }
+  }
+
+  const isoLike = raw.replace(/\//g, '-');
+  const date = new Date(isoLike);
   if (Number.isNaN(date.getTime())) return null;
   return date.toISOString().slice(0, 19).replace('T', ' ');
 };
+
+const parseDurationSeconds = (value) => {
+  if (value === null || value === undefined || value === '') return null;
+  if (typeof value === 'number') return Number.isFinite(value) ? Math.max(0, Math.round(value)) : null;
+
+  const raw = String(value).trim();
+  if (!raw) return null;
+  if (/^\d+(\.\d+)?$/.test(raw)) return Math.max(0, Math.round(Number(raw)));
+
+  const parts = raw.split(':').map(part => part.trim());
+  if (parts.length >= 2 && parts.every(part => /^\d+$/.test(part))) {
+    const nums = parts.map(Number);
+    if (nums.length === 2) return (nums[0] * 60) + nums[1];
+    if (nums.length === 3) return (nums[0] * 3600) + (nums[1] * 60) + nums[2];
+  }
+
+  const hourMatch = raw.match(/(?:(\d+)\s*h)?\s*(?:(\d+)\s*m(?:in)?)?\s*(?:(\d+)\s*s)?/i);
+  if (hourMatch && hourMatch[0].trim()) {
+    const [, h = '0', m = '0', s = '0'] = hourMatch;
+    const total = (Number(h) * 3600) + (Number(m) * 60) + Number(s);
+    if (Number.isFinite(total)) return total;
+  }
+
+  return null;
+};
+
+const parseJsonArray = (value) => {
+  if (Array.isArray(value)) return value;
+  if (typeof value !== 'string') return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+/* ================= MAPPING FLEXIBLE DES COLONNES CDR ================= */
+
+// Synonymes acceptés pour chaque champ interne
+const CHAMPS_SYNONYMES = {
+  numero_sim: [
+    'msisdn', 'msisdn_a', 'a_msisdn', 'numero_sim', 'sim', 'a_number',
+    'calling_number', 'calling_party', 'caller', 'calling', 'numero_appelant',
+    'a_party', 'ani', 'cli', 'source', 'subscriber', 'numero', 'phone',
+    'from', 'src', 'originating', 'origine_number', 'calling_msisdn',
+    'imsi_msisdn', 'abonnee', 'abonnee_a', 'caller_id',
+  ],
+  numero_appele: [
+    'numero_appele', 'numero_appelé', 'b_number', 'called_number', 'called_party',
+    'destination', 'dialed', 'called', 'b_party', 'dnis', 'numero_destination',
+    'called_msisdn', 'b_msisdn', 'msisdn_b', 'to', 'dst', 'terminating',
+    'dest', 'b_calling', 'dialed_number', 'callee', 'abonnee_b', 'destination_number',
+  ],
+  date_heure: [
+    'date_heure', 'call_time', 'datetime', 'timestamp', 'start_time', 'date_time',
+    'call_date', 'start', 'heure', 'date', 'call_start', 'start_datetime',
+    'call_timestamp', 'event_time', 'time', 'date_appel', 'heure_appel',
+    'call_begin', 'begin_time', 'record_date', 'answer_time', 'setup_time',
+  ],
+  duree_secondes: [
+    'duree_secondes', 'duration', 'duree', 'call_duration', 'duration_sec',
+    'duree_sec', 'length', 'talk_time', 'billsec', 'duration_seconds',
+    'call_length', 'elapsed', 'seconds', 'duree_appel', 'total_duration',
+    'charged_duration', 'conversation_time', 'holding_time',
+  ],
+  statut_appel: [
+    'statut_appel', 'status', 'result', 'call_status', 'call_result', 'etat',
+    'disposition', 'outcome', 'answer_status', 'call_state', 'statut',
+    'release_cause', 'termination_cause',
+  ],
+  origine: [
+    'origine', 'type', 'call_type', 'direction', 'traffic_type', 'traffic',
+    'call_direction', 'service_type', 'nature', 'call_nature', 'service',
+    'roaming_flag', 'in_out', 'traffic_case',
+  ],
+};
+
+// Normalise la valeur brute du statut vers 'abouti' ou 'echoue'
+const normaliserStatut = (val) => {
+  const v = String(val ?? '').toLowerCase().trim();
+  const ABOUTI = ['abouti', 'answered', 'connected', 'success', 'yes', '1', 'ok',
+    'completed', 'normal', 'normal clearing', 'established', 'accept'];
+  const ECHOUE = ['echoue', 'échoué', 'failed', 'unanswered', 'busy', 'no answer',
+    'noanswer', '0', 'nok', 'no', 'rejected', 'error', 'timeout', 'cancel',
+    'congestion', 'not answered'];
+  if (ABOUTI.some(a => v.includes(a))) return 'abouti';
+  if (ECHOUE.some(e => v.includes(e))) return 'echoue';
+  return null;
+};
+
+// Normalise la valeur brute de l'origine vers 'national' ou 'international'
+const normaliserOrigine = (val) => {
+  const v = String(val ?? '').toLowerCase().trim();
+  const INTER = ['international', 'inter', 'int', 'roaming', 'idd', 'foreign',
+    'abroad', 'overseas', 'transit'];
+  const NAT = ['national', 'local', 'domestic', 'nat', 'loc', 'home',
+    'onnet', 'offnet', 'inland'];
+  if (INTER.some(i => v.includes(i))) return 'international';
+  if (NAT.some(n => v.includes(n))) return 'national';
+  // Si la valeur est numérique : 1 = international, 0 = national (convention courante)
+  if (v === '1') return 'international';
+  if (v === '0') return 'national';
+  return null;
+};
+
+// Tente de faire correspondre automatiquement les colonnes du fichier aux champs internes
+const detecterMapping = (colonnes) => {
+  const mapping = {};
+  const normalizedColumns = colonnes.map(col => ({
+    original: col,
+    normalized: normalizeColumnName(col),
+  }));
+  for (const [champ, synonymes] of Object.entries(CHAMPS_SYNONYMES)) {
+    const synonymesNormalises = synonymes.map(normalizeColumnName);
+    const col = normalizedColumns.find(c =>
+      synonymesNormalises.includes(c.normalized)
+    );
+    mapping[champ] = col?.original || null;
+  }
+  return mapping;
+};
+
+const detecterOrigineDepuisNumero = (numero) => {
+  const v = String(numero ?? '').replace(/\s+/g, '');
+  if (!v) return null;
+  if (v.startsWith('+242') || v.startsWith('242')) return 'national';
+  if (v.startsWith('+') || v.startsWith('00')) return 'international';
+  return 'national';
+};
+
+const infererStatutAppel = (rawStatut, dureeSecondes) => {
+  const statut = normaliserStatut(rawStatut);
+  if (statut) return statut;
+  if (dureeSecondes === null) return 'abouti';
+  return dureeSecondes > 0 ? 'abouti' : 'echoue';
+};
+
+const infererOrigine = (rawOrigine, numeroAppele) => {
+  const origine = normaliserOrigine(rawOrigine);
+  if (origine) return origine;
+  return detecterOrigineDepuisNumero(numeroAppele) || 'national';
+};
+
+const REPORT_STATUSES = ['brouillon', 'envoye', 'consulte', 'traite'];
+const REPORT_ROLES = ['analyste', 'arpce', 'analyste_fraude', 'agent_mtn', 'agent_airtel'];
+const REPORT_DESTINATIONS = ['arpce', 'agent_mtn', 'agent_airtel'];
+
+const toSqlDateTime = (date = new Date()) => date.toISOString().slice(0, 19).replace('T', ' ');
+
+const buildReportReference = () =>
+  `RPT-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${uuidv4().slice(0, 6).toUpperCase()}`;
+
+const parseJsonField = (value, fallback) => {
+  if (!value) return fallback;
+  if (typeof value !== 'string') return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+};
+
+const normalizeAnalysesForReport = (rows) => rows.map((row) => ({
+  ...row,
+  criteres: parseJsonField(row.criteres, row.criteres),
+}));
+
+const buildReportContent = ({
+  type,
+  operateur,
+  reference,
+  analysteNom,
+  periodeDebut,
+  periodeFin,
+  analyses,
+  dateSignature = null,
+}) => {
+  const base = {
+    reference,
+    operateur,
+    total: analyses.length,
+    analyste_nom: analysteNom,
+    periode: {
+      date_debut: periodeDebut,
+      date_fin: periodeFin,
+    },
+    signature: {
+      analyste_nom: analysteNom,
+      date_signature: dateSignature,
+    },
+    date_generation: new Date().toISOString(),
+  };
+
+  if (type === 'simbox') {
+    return {
+      ...base,
+      titre: `Rapport SimBox — ${operateur}`,
+      sims_confirmees: analyses,
+    };
+  }
+
+  return {
+    ...base,
+    titre: `Analyse CDR — ${operateur}`,
+    analyses,
+  };
+};
+
+const normalizeReportRow = (row) => {
+  const contenu = parseJsonField(row.contenu_json, {});
+  const signatureDate = row.date_signature
+    ? new Date(row.date_signature).toISOString()
+    : contenu.signature?.date_signature || null;
+
+  return {
+    ...row,
+    contenu_json: {
+      ...contenu,
+      reference: row.reference_unique || contenu.reference || null,
+      signature: {
+        analyste_nom: row.analyste_nom || contenu.signature?.analyste_nom || contenu.analyste_nom || null,
+        date_signature: signatureDate,
+      },
+      periode: {
+        date_debut: row.periode_debut || contenu.periode?.date_debut || null,
+        date_fin: row.periode_fin || contenu.periode?.date_fin || null,
+      },
+    },
+  };
+};
+
+/* ================= DÉTECTION DE COLONNES ================= */
+
+// Analyse un fichier CDR et retourne le mapping proposé + un aperçu
+app.post('/api/cdr/detect-columns', upload.single('file'), (req, res) => {
+  const file = req.file;
+  if (!file) return res.status(400).json({ error: 'Fichier requis' });
+
+  const ext = file.originalname.split('.').pop().toLowerCase();
+  if (!['csv', 'xlsx', 'xls'].includes(ext)) {
+    return res.status(400).json({ error: 'Format non supporté (csv, xlsx, xls)' });
+  }
+
+  let rows = [];
+  try {
+    const workbook = xlsx.read(file.buffer, { type: 'buffer' });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    rows = xlsx.utils.sheet_to_json(sheet, { defval: '' });
+  } catch {
+    return res.status(400).json({ error: 'Impossible de lire le fichier' });
+  }
+
+  if (rows.length === 0) return res.status(400).json({ error: 'Fichier vide' });
+
+  const colonnes = Object.keys(rows[0]);
+  const mapping = detecterMapping(colonnes);
+  const preview = rows.slice(0, 3);
+
+  res.json({ colonnes, mapping, nb_lignes: rows.length, preview });
+});
 
 /* ================= ANALYSE ================= */
 
@@ -148,10 +495,21 @@ const analyzeSim = (simNumber, lines, cdrId) => {
 
 app.post('/api/cdr/upload', upload.single('file'), async (req, res) => {
   const file = req.file;
-  const { agent_id, operateur = 'TOUS' } = req.body;
+  const { agent_id, operateur = 'TOUS', mapping: mappingStr } = req.body;
 
   if (!file) return res.status(400).json({ error: 'Fichier requis' });
   if (!agent_id) return res.status(400).json({ error: 'agent_id requis' });
+  if (!mappingStr) return res.status(400).json({ error: 'mapping requis — appelez d\'abord /api/cdr/detect-columns' });
+
+  let mapping;
+  try { mapping = JSON.parse(mappingStr); }
+  catch { return res.status(400).json({ error: 'mapping JSON invalide' }); }
+
+  const CHAMPS_REQUIS = ['numero_sim', 'numero_appele', 'date_heure', 'duree_secondes'];
+  const manquants = CHAMPS_REQUIS.filter(c => !mapping[c]);
+  if (manquants.length > 0) {
+    return res.status(400).json({ error: `Colonnes non associées : ${manquants.join(', ')}` });
+  }
 
   const ext = file.originalname.split('.').pop().toLowerCase();
   if (!['csv', 'xlsx', 'xls'].includes(ext)) {
@@ -174,41 +532,39 @@ app.post('/api/cdr/upload', upload.single('file'), async (req, res) => {
   let lignesRejetees = 0;
 
   for (const row of rows) {
-    const numero_sim = String(row.numero_sim || '').trim();
+    // Extraction via mapping dynamique (la colonne MSISDN du fichier → numero_sim interne)
+    const numero_sim = String(row[mapping.numero_sim] ?? '').trim();
     if (!numero_sim) { lignesRejetees++; continue; }
 
-    const numero_appele = String(row.numero_appele || '').trim();
-    const date_heure = toDateTimeString(row.date_heure);
-    const duree_secondes = Number(row.duree_secondes || 0);
-    const statut = String(row.statut_appel || '').toLowerCase();
-    const origine = String(row.origine || '').toLowerCase();
+    const numero_appele = String(row[mapping.numero_appele] ?? '').trim();
+    if (!numero_appele) { lignesRejetees++; continue; }
 
-    if (
-      !date_heure ||
-      Number.isNaN(duree_secondes) ||
-      !['abouti', 'echoue'].includes(statut) ||
-      !['national', 'international'].includes(origine)
-    ) {
+    const date_heure = toDateTimeString(row[mapping.date_heure]);
+    const duree_secondes = parseDurationSeconds(row[mapping.duree_secondes]);
+    const statut = infererStatutAppel(
+      mapping.statut_appel ? row[mapping.statut_appel] : null,
+      duree_secondes,
+    );
+    const origine = infererOrigine(
+      mapping.origine ? row[mapping.origine] : null,
+      numero_appele,
+    );
+
+    if (!date_heure || duree_secondes === null || !statut || !origine) {
       lignesRejetees++;
       continue;
     }
 
     cdrLineEntities.push([
-      uuidv4(),
-      cdrId,
-      numero_sim,
-      numero_appele,
-      date_heure,
-      Math.round(duree_secondes),
-      statut,
-      origine,
+      uuidv4(), cdrId, numero_sim, numero_appele,
+      date_heure, Math.round(duree_secondes), statut, origine,
       operateur.toUpperCase(),
     ]);
   }
 
   if (cdrLineEntities.length === 0) {
     return res.status(400).json({
-      error: `Aucune ligne valide trouvée. ${lignesRejetees} ligne(s) rejetée(s) — vérifiez les colonnes: numero_sim, numero_appele, date_heure, duree_secondes, statut_appel, origine`,
+      error: `Aucune ligne valide. ${lignesRejetees} ligne(s) rejetée(s). Vérifiez au minimum les colonnes SIM, numéro appelé, date/heure et durée.`,
     });
   }
 
@@ -248,7 +604,7 @@ app.post('/api/cdr/upload', upload.single('file'), async (req, res) => {
 
 app.patch('/api/cdr/analyses/:id', async (req, res) => {
   const { id } = req.params;
-  const { statut, motif_refus, justificatif_confirmation } = req.body;
+  const { statut, motif_refus, details_refus, justificatif_confirmation } = req.body;
 
   if (!['confirmee', 'refusee'].includes(statut)) {
     return res.status(400).json({ error: 'Statut invalide' });
@@ -266,8 +622,16 @@ app.patch('/api/cdr/analyses/:id', async (req, res) => {
 
   try {
     await conn.query(
-      `UPDATE sim_analyses SET statut=?, motif_refus=?, justificatif_confirmation=?, date_decision=NOW() WHERE id=?`,
-      [statut, motif_refus || null, justificatif_confirmation || null, id]
+      `UPDATE sim_analyses
+       SET statut=?, motif_refus=?, details_refus=?, justificatif_confirmation=?, date_decision=NOW()
+       WHERE id=?`,
+      [
+        statut,
+        motif_refus || null,
+        details_refus || null,
+        justificatif_confirmation || null,
+        id,
+      ]
     );
 
     res.json({ success: true });
@@ -284,7 +648,7 @@ app.patch('/api/cdr/analyses/:id', async (req, res) => {
 /* ================= RAPPORTS ================= */
 
 app.post('/api/rapports/envoyer-arpce', async (req, res) => {
-  const { operateur } = req.body;
+  const { operateur, analyste_nom = 'Analyste fraude', date_debut = null, date_fin = null } = req.body;
   const conn = await pool.getConnection();
 
   try {
@@ -298,13 +662,31 @@ app.post('/api/rapports/envoyer-arpce', async (req, res) => {
     }
 
     const rapportId = uuidv4();
+    const reference = buildReportReference();
+    const signatureDate = toSqlDateTime();
+    const analyses = normalizeAnalysesForReport(sims);
+    const contenu = {
+      ...buildReportContent({
+        type: 'simbox',
+        operateur,
+        reference,
+        analysteNom: analyste_nom,
+        periodeDebut: date_debut,
+        periodeFin: date_fin,
+        analyses,
+        dateSignature: signatureDate,
+      }),
+      date: new Date().toISOString(),
+    };
 
     await conn.query(
-      `INSERT INTO rapports VALUES (?, 'simbox', 'analyste', 'arpce', ?, ?)`,
-      [rapportId, operateur, JSON.stringify(sims)]
+      `INSERT INTO rapports
+        (id, type, expediteur_role, destinataire_role, operateur, contenu_json, reference_unique, statut_rapport, analyste_nom, date_signature, periode_debut, periode_fin)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [rapportId, 'simbox', 'analyste_fraude', 'arpce', operateur, JSON.stringify(contenu), reference, 'envoye', analyste_nom, signatureDate, date_debut, date_fin]
     );
 
-    res.json({ success: true, rapport_id: rapportId });
+    res.json({ success: true, rapport_id: rapportId, reference_unique: reference });
 
   } catch (err) {
     console.error('[RAPPORTS ARPCE ERROR]', err);
@@ -316,7 +698,7 @@ app.post('/api/rapports/envoyer-arpce', async (req, res) => {
 });
 
 app.post('/api/rapports/envoyer-agent', async (req, res) => {
-  const { operateur } = req.body;
+  const { operateur, analyste_nom = 'Analyste fraude', date_debut = null, date_fin = null } = req.body;
   if (!['MTN', 'AIRTEL'].includes(operateur)) {
     return res.status(400).json({ error: 'Opérateur invalide' });
   }
@@ -327,21 +709,167 @@ app.post('/api/rapports/envoyer-agent', async (req, res) => {
       [operateur]
     );
     const rapportId = uuidv4();
-    const contenu = {
-      titre: `Analyse CDR — ${operateur}`,
-      date: new Date().toISOString(),
+    const reference = buildReportReference();
+    const signatureDate = toSqlDateTime();
+    const analyses = normalizeAnalysesForReport(sims);
+    const contenu = buildReportContent({
+      type: 'cdr',
       operateur,
-      analyses: sims,
-      total: sims.length,
-    };
+      reference,
+      analysteNom: analyste_nom,
+      periodeDebut: date_debut,
+      periodeFin: date_fin,
+      analyses,
+      dateSignature: signatureDate,
+    });
     await conn.query(
-      'INSERT INTO rapports (id, type, expediteur_role, destinataire_role, operateur, contenu_json) VALUES (?, ?, ?, ?, ?, ?)',
-      [rapportId, 'cdr', 'analyste_fraude', `agent_${operateur.toLowerCase()}`, operateur, JSON.stringify(contenu)]
+      `INSERT INTO rapports
+        (id, type, expediteur_role, destinataire_role, operateur, contenu_json, reference_unique, statut_rapport, analyste_nom, date_signature, periode_debut, periode_fin)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [rapportId, 'cdr', 'analyste_fraude', `agent_${operateur.toLowerCase()}`, operateur, JSON.stringify(contenu), reference, 'envoye', analyste_nom, signatureDate, date_debut, date_fin]
     );
-    res.json({ success: true, rapport_id: rapportId, operateur });
+    res.json({ success: true, rapport_id: rapportId, operateur, reference_unique: reference });
   } catch (err) {
     console.error('[RAPPORTS AGENT ERROR]', err);
     res.status(500).json({ error: 'Erreur serveur' });
+  } finally {
+    conn.release();
+  }
+});
+
+app.post('/api/analyste/rapports/generer', async (req, res) => {
+  const {
+    operateur = 'TOUS',
+    destinataire,
+    date_debut,
+    date_fin,
+    analyste_nom = 'Analyste fraude',
+  } = req.body;
+
+  if (!date_debut || !date_fin) {
+    return res.status(400).json({ error: 'date_debut et date_fin requis' });
+  }
+  if (!REPORT_DESTINATIONS.includes(destinataire)) {
+    return res.status(400).json({ error: 'Destinataire invalide' });
+  }
+  if (!['MTN', 'AIRTEL', 'TOUS'].includes(operateur)) {
+    return res.status(400).json({ error: 'Opérateur invalide' });
+  }
+  if (destinataire === 'agent_mtn' && operateur !== 'MTN') {
+    return res.status(400).json({ error: 'Un rapport destiné à MTN doit cibler MTN' });
+  }
+  if (destinataire === 'agent_airtel' && operateur !== 'AIRTEL') {
+    return res.status(400).json({ error: 'Un rapport destiné à AIRTEL doit cibler AIRTEL' });
+  }
+
+  const conn = await pool.getConnection();
+  try {
+    const [rows] = await conn.query(
+      `SELECT sa.*, cf.nom_fichier
+       FROM sim_analyses sa
+       JOIN cdr_files cf ON cf.id = sa.cdr_id
+       WHERE sa.statut = 'confirmee'
+         AND COALESCE(sa.date_decision, sa.date_analyse) >= ?
+         AND COALESCE(sa.date_decision, sa.date_analyse) < DATE_ADD(?, INTERVAL 1 DAY)
+         AND (? = 'TOUS' OR sa.operateur = ?)
+       ORDER BY sa.score_suspicion DESC, sa.date_analyse DESC`,
+      [date_debut, date_fin, operateur, operateur]
+    );
+
+    if (rows.length === 0) {
+      return res.status(400).json({ error: 'Aucune analyse confirmée sur cette période' });
+    }
+
+    const analyses = normalizeAnalysesForReport(rows);
+    const rapportId = uuidv4();
+    const reference = buildReportReference();
+    const type = destinataire === 'arpce' ? 'simbox' : 'cdr';
+    const contenu = buildReportContent({
+      type,
+      operateur,
+      reference,
+      analysteNom: analyste_nom,
+      periodeDebut: date_debut,
+      periodeFin: date_fin,
+      analyses,
+    });
+
+    await conn.query(
+      `INSERT INTO rapports
+        (id, type, expediteur_role, destinataire_role, operateur, contenu_json, reference_unique, statut_rapport, analyste_nom, periode_debut, periode_fin)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [rapportId, type, 'analyste_fraude', destinataire, operateur, JSON.stringify(contenu), reference, 'brouillon', analyste_nom, date_debut, date_fin]
+    );
+
+    const [[rapport]] = await conn.query('SELECT * FROM rapports WHERE id = ?', [rapportId]);
+    res.status(201).json(normalizeReportRow(rapport));
+  } catch (err) {
+    console.error('[ANALYSTE RAPPORT GENERER ERROR]', err);
+    res.status(500).json({ error: 'Erreur serveur lors de la génération du rapport' });
+  } finally {
+    conn.release();
+  }
+});
+
+app.post('/api/rapports/:id/envoyer', async (req, res) => {
+  const { id } = req.params;
+  const { analyste_nom } = req.body;
+  const conn = await pool.getConnection();
+  try {
+    const [[rapport]] = await conn.query('SELECT * FROM rapports WHERE id = ?', [id]);
+    if (!rapport) return res.status(404).json({ error: 'Rapport introuvable' });
+
+    const signatureDate = toSqlDateTime();
+    const analysteNomFinal = analyste_nom || rapport.analyste_nom || 'Analyste fraude';
+    const contenu = normalizeReportRow(rapport).contenu_json;
+    const contenuMisAJour = {
+      ...contenu,
+      signature: {
+        analyste_nom: analysteNomFinal,
+        date_signature: signatureDate,
+      },
+    };
+
+    await conn.query(
+      `UPDATE rapports
+       SET statut_rapport='envoye',
+           analyste_nom=?,
+           date_signature=?,
+           contenu_json=?,
+           statut_lu=FALSE
+       WHERE id=?`,
+      [analysteNomFinal, signatureDate, JSON.stringify(contenuMisAJour), id]
+    );
+
+    const [[updated]] = await conn.query('SELECT * FROM rapports WHERE id = ?', [id]);
+    res.json(normalizeReportRow(updated));
+  } catch (err) {
+    console.error('[RAPPORT ENVOI ERROR]', err);
+    res.status(500).json({ error: 'Erreur serveur lors de l\'envoi du rapport' });
+  } finally {
+    conn.release();
+  }
+});
+
+app.patch('/api/rapports/:id/statut', async (req, res) => {
+  const { id } = req.params;
+  const { statut_rapport } = req.body;
+  if (!REPORT_STATUSES.includes(statut_rapport)) {
+    return res.status(400).json({ error: 'Statut de rapport invalide' });
+  }
+
+  const conn = await pool.getConnection();
+  try {
+    await conn.query(
+      'UPDATE rapports SET statut_rapport = ?, statut_lu = IF(? IN (\'consulte\', \'traite\'), TRUE, statut_lu) WHERE id = ?',
+      [statut_rapport, statut_rapport, id]
+    );
+    const [[updated]] = await conn.query('SELECT * FROM rapports WHERE id = ?', [id]);
+    if (!updated) return res.status(404).json({ error: 'Rapport introuvable' });
+    res.json(normalizeReportRow(updated));
+  } catch (err) {
+    console.error('[RAPPORT STATUS ERROR]', err);
+    res.status(500).json({ error: 'Erreur serveur lors de la mise à jour du rapport' });
   } finally {
     conn.release();
   }
@@ -383,28 +911,32 @@ app.get('/api/cdr/analyses', async (_req, res) => {
 });
 
 app.get('/api/rapports', async (req, res) => {
-  const { role, operateur } = req.query;
+  const { role, operateur, expediteur_role, statut_rapport } = req.query;
   const conn = await pool.getConnection();
   try {
-    const VALID_ROLES = ['analyste', 'arpce', 'analyste_fraude', 'agent_mtn', 'agent_airtel'];
     const VALID_OPERATEURS = ['MTN', 'AIRTEL', 'TOUS'];
 
     let query = 'SELECT * FROM rapports WHERE 1=1';
     const params = [];
     if (role) {
-      if (!VALID_ROLES.includes(role)) return res.status(400).json({ error: 'Rôle invalide' });
+      if (!REPORT_ROLES.includes(role)) return res.status(400).json({ error: 'Rôle invalide' });
       query += ' AND destinataire_role = ?'; params.push(role);
+    }
+    if (expediteur_role) {
+      if (!REPORT_ROLES.includes(expediteur_role)) return res.status(400).json({ error: 'Expéditeur invalide' });
+      query += ' AND expediteur_role = ?'; params.push(expediteur_role);
     }
     if (operateur) {
       if (!VALID_OPERATEURS.includes(operateur)) return res.status(400).json({ error: 'Opérateur invalide' });
       query += ' AND operateur = ?'; params.push(operateur);
     }
+    if (statut_rapport) {
+      if (!REPORT_STATUSES.includes(statut_rapport)) return res.status(400).json({ error: 'Statut de rapport invalide' });
+      query += ' AND statut_rapport = ?'; params.push(statut_rapport);
+    }
     query += ' ORDER BY date_envoi DESC';
     const [rows] = await conn.query(query, params);
-    res.json(rows.map(r => ({
-      ...r,
-      contenu_json: typeof r.contenu_json === 'string' ? JSON.parse(r.contenu_json) : r.contenu_json,
-    })));
+    res.json(rows.map(normalizeReportRow));
   } catch (err) {
     console.error('[RAPPORTS GET ERROR]', err);
     res.status(500).json({ error: 'Erreur serveur' });
@@ -480,6 +1012,12 @@ app.post('/api/ordres/bloquer', async (req, res) => {
       'INSERT INTO ordres_blocage (id, rapport_id, operateur, liste_sim_json, delai_heures, date_limite) VALUES (?, ?, ?, ?, ?, ?)',
       [ordreId, rapport_id, operateur, JSON.stringify(liste_sim), delai_heures, dateLimite]
     );
+    if (rapport_id && rapport_id !== 'manual') {
+      await conn.query(
+        "UPDATE rapports SET statut_rapport='traite', statut_lu=TRUE WHERE id = ?",
+        [rapport_id]
+      );
+    }
     res.json({ success: true, ordre_id: ordreId, date_limite: dateLimite });
   } catch (err) {
     console.error('[ORDRES CREER ERROR]', err);
@@ -570,6 +1108,8 @@ app.post('/api/cdr/agreger', async (req, res) => {
   try {
     await conn.beginTransaction();
 
+    const nomAgregation = `Agrégation ${operateur} — ${date_debut} → ${date_fin}`;
+
     // Récupérer toutes les lignes CDR de la période pour cet opérateur
     const [lines] = await conn.query(
       `SELECT cl.*
@@ -586,6 +1126,20 @@ app.post('/api/cdr/agreger', async (req, res) => {
       return res.status(400).json({ error: 'Aucune donnée CDR sur cette période' });
     }
 
+    // Remplace toute agrégation précédente sur la même période pour garder une démo rejouable.
+    const [existingAggregations] = await conn.query(
+      `SELECT id
+       FROM cdr_files
+       WHERE nom_fichier = ?
+         AND operateur = ?
+         AND agent_id = ?`,
+      [nomAgregation, operateur, agent_id]
+    );
+
+    for (const aggregation of existingAggregations) {
+      await conn.query('DELETE FROM cdr_files WHERE id = ?', [aggregation.id]);
+    }
+
     // Créer un fichier CDR virtuel représentant l'agrégation
     const cdrVirtuelId = uuidv4();
     const dateAgregation = new Date().toISOString().slice(0, 19).replace('T', ' ');
@@ -593,7 +1147,7 @@ app.post('/api/cdr/agreger', async (req, res) => {
       'INSERT INTO cdr_files VALUES (?, ?, ?, ?, ?, ?, ?)',
       [
         cdrVirtuelId,
-        `Agrégation ${operateur} — ${date_debut} → ${date_fin}`,
+        nomAgregation,
         dateAgregation,
         lines.length,
         'analyse',
@@ -796,6 +1350,8 @@ app.post('/api/cdr/detecter-simbox', async (req, res) => {
 
   const conn = await pool.getConnection();
   try {
+    await conn.beginTransaction();
+
     const [lines] = await conn.query(
       `SELECT cl.numero_sim, cl.numero_appele, cl.date_heure
        FROM cdr_lines cl
@@ -806,10 +1362,21 @@ app.post('/api/cdr/detecter-simbox', async (req, res) => {
     );
 
     if (lines.length === 0) {
+      await conn.rollback();
       return res.status(400).json({ error: 'Aucune donnée CDR sur cette période' });
     }
 
     const groupes = detecterSimbox(lines);
+
+    // Remplace toute détection précédente sur la même période pour éviter les doublons.
+    await conn.query(
+      `DELETE FROM simbox_detectees
+       WHERE operateur = ?
+         AND agent_id = ?
+         AND periode_debut = ?
+         AND periode_fin = ?`,
+      [operateur, agent_id, date_debut, date_fin]
+    );
 
     // Persister les groupes détectés
     for (const g of groupes) {
@@ -828,6 +1395,8 @@ app.post('/api/cdr/detecter-simbox', async (req, res) => {
       );
     }
 
+    await conn.commit();
+
     res.status(201).json({
       nb_groupes: groupes.length,
       nb_sims_impliquees: groupes.reduce((acc, g) => acc + g.nb_sims, 0),
@@ -838,6 +1407,7 @@ app.post('/api/cdr/detecter-simbox', async (req, res) => {
     });
 
   } catch (err) {
+    await conn.rollback();
     console.error('[DETECTER SIMBOX ERROR]', err);
     res.status(500).json({ error: 'Erreur serveur lors de la détection' });
   } finally {
@@ -866,10 +1436,8 @@ app.get('/api/simbox', async (req, res) => {
     const [rows] = await conn.query(query, params);
     res.json(rows.map(r => ({
       ...r,
-      sims: typeof r.sims_json === 'string' ? JSON.parse(r.sims_json) : r.sims_json,
-      contacts_communs: typeof r.contacts_communs_json === 'string'
-        ? JSON.parse(r.contacts_communs_json)
-        : r.contacts_communs_json,
+      sims: parseJsonArray(r.sims_json),
+      contacts_communs: parseJsonArray(r.contacts_communs_json),
     })));
   } catch (err) {
     console.error('[SIMBOX GET ERROR]', err);
@@ -906,6 +1474,13 @@ app.patch('/api/simbox/:id', async (req, res) => {
 
 const port = process.env.PORT || 4000;
 
-app.listen(port, () => {
-  console.log(`Serveur démarré sur http://localhost:${port}`);
-});
+ensureDatabaseSchema()
+  .then(() => {
+    app.listen(port, () => {
+      console.log(`Serveur démarré sur http://localhost:${port}`);
+    });
+  })
+  .catch((err) => {
+    console.error('[SCHEMA INIT ERROR]', err);
+    process.exit(1);
+  });

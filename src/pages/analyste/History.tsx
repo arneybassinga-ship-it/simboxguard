@@ -1,16 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { CheckCircle, XCircle, Clock } from 'lucide-react';
-
-interface SimAnalysis {
-  id: string; numero_sim: string; operateur: string;
-  score_suspicion: number; niveau_alerte: string;
-  statut: string; date_analyse: string; date_decision?: string;
-  motif_refus?: string; details_refus?: string; criteres: any;
-}
+import type { SimAnalysis } from '../../types';
+import { apiUrl } from '../../lib/api';
 
 const History = () => {
   const [analyses, setAnalyses] = useState<SimAnalysis[]>([]);
@@ -18,7 +13,7 @@ const History = () => {
   const [filtre, setFiltre] = useState('tous');
 
   useEffect(() => {
-    fetch('http://localhost:4000/api/cdr/analyses')
+    fetch(apiUrl('/api/cdr/analyses'))
       .then(r => r.json()).then(setAnalyses).finally(() => setLoading(false));
   }, []);
 
@@ -77,7 +72,7 @@ const History = () => {
           {loading ? <p className="text-slate-400">Chargement...</p> : (
             <Table>
               <TableHeader><TableRow>
-                <TableHead>SIM</TableHead>
+                <TableHead>MSISDN</TableHead>
                 <TableHead>Opérateur</TableHead>
                 <TableHead>Score</TableHead>
                 <TableHead>Décision</TableHead>

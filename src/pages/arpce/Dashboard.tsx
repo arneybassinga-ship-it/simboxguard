@@ -5,6 +5,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { ShieldAlert, Clock, CheckCircle, AlertTriangle, FileText } from 'lucide-react';
 import { showError } from '../../utils/toast';
 import { SimAnalysis, BlockingOrder, Sanction } from '../../types';
+import { apiUrl } from '../../lib/api';
 
 const ARPCEDashboard = () => {
   const [analyses, setAnalyses] = useState<SimAnalysis[]>([]);
@@ -14,9 +15,9 @@ const ARPCEDashboard = () => {
 
   useEffect(() => {
     Promise.all([
-      fetch('http://localhost:4000/api/cdr/analyses').then(r => r.json()),
-      fetch('http://localhost:4000/api/ordres').then(r => r.json()),
-      fetch('http://localhost:4000/api/sanctions').then(r => r.json()),
+      fetch(apiUrl('/api/cdr/analyses')).then(r => r.json()),
+      fetch(apiUrl('/api/ordres')).then(r => r.json()),
+      fetch(apiUrl('/api/sanctions')).then(r => r.json()),
     ]).then(([a, o, s]) => {
       setAnalyses(a); setOrdres(o); setSanctions(s);
     }).catch(() => showError('Erreur chargement'))
@@ -38,7 +39,7 @@ const ARPCEDashboard = () => {
   ];
 
   const CARDS = [
-    { label: 'SIM confirmées SimBox', value: stats.confirmees, icon: ShieldAlert, color: 'text-red-600', bg: 'bg-red-50' },
+    { label: 'MSISDN confirmées SimBox', value: stats.confirmees, icon: ShieldAlert, color: 'text-red-600', bg: 'bg-red-50' },
     { label: 'Ordres émis', value: stats.ordres_total, icon: FileText, color: 'text-blue-600', bg: 'bg-blue-50' },
     { label: 'Blocages effectués', value: stats.ordres_bloques, icon: CheckCircle, color: 'text-green-600', bg: 'bg-green-50' },
     { label: 'En attente de blocage', value: stats.en_attente, icon: Clock, color: 'text-orange-600', bg: 'bg-orange-50' },
@@ -63,7 +64,7 @@ const ARPCEDashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">SIM confirmées par opérateur</CardTitle>
+            <CardTitle className="text-sm">MSISDN confirmées par opérateur</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={160}>

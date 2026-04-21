@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import type { BlockingOrder, Sanction, SimAnalysis } from '../types';
 
 const COLORS = {
   primary: [15, 23, 42] as [number, number, number],
@@ -70,9 +71,9 @@ const addFooter = (doc: jsPDF, pageNum: number, totalPages: number) => {
 };
 
 // ─── RAPPORT ANALYSE CDR ────────────────────────────────────────────────────
-export const generateRapportAnalyseCDR = (analyses: any[], operateur: string) => {
+export const generateRapportAnalyseCDR = (analyses: ReportAnalysis[], operateur: string) => {
   const doc = new jsPDF();
-  addHeader(doc, 'Rapport d\'Analyse CDR', `Analyse des SIM suspectes détectées — ${operateur}`, operateur);
+  addHeader(doc, 'Rapport d\'Analyse CDR', `Analyse des MSISDN suspectes détectées — ${operateur}`, operateur);
 
   // Résumé stats
   const critiques = analyses.filter(a => a.niveau_alerte === 'critique').length;
@@ -80,7 +81,7 @@ export const generateRapportAnalyseCDR = (analyses: any[], operateur: string) =>
   const confirmees = analyses.filter(a => a.statut === 'confirmee').length;
 
   const stats = [
-    { label: 'Total SIM analysées', value: String(analyses.length) },
+    { label: 'Total MSISDN analysées', value: String(analyses.length) },
     { label: 'Alertes critiques', value: String(critiques) },
     { label: 'Alertes élevées', value: String(elevees) },
     { label: 'SimBox confirmées', value: String(confirmees) },
@@ -107,7 +108,7 @@ export const generateRapportAnalyseCDR = (analyses: any[], operateur: string) =>
   // Tableau
   autoTable(doc, {
     startY: y,
-    head: [['Numéro SIM', 'Score', 'Niveau', 'Statut', 'App/h', 'Durée moy.', 'Tx échec', '% Intl']],
+    head: [['MSISDN', 'Score', 'Niveau', 'Statut', 'App/h', 'Durée moy.', 'Tx échec', '% Intl']],
     body: analyses.map(a => [
       a.numero_sim,
       `${a.score_suspicion}%`,
@@ -142,9 +143,9 @@ export const generateRapportAnalyseCDR = (analyses: any[], operateur: string) =>
 };
 
 // ─── RAPPORT SIMBOX (pour ARPCE) ────────────────────────────────────────────
-export const generateRapportSimbox = (sims: any[], operateur: string, analyste: string) => {
+export const generateRapportSimbox = (sims: ReportAnalysis[], operateur: string, analyste: string) => {
   const doc = new jsPDF();
-  addHeader(doc, 'Rapport SimBox — ARPCE', `SIM confirmées comme SimBox — Transmis à l\'ARPCE`, operateur);
+  addHeader(doc, 'Rapport SimBox — ARPCE', "MSISDN confirmées comme SimBox — Transmis à l'ARPCE", operateur);
 
   let y = 52;
 
@@ -161,7 +162,7 @@ export const generateRapportSimbox = (sims: any[], operateur: string, analyste: 
   doc.text(new Date().toLocaleString('fr-FR'), 65, y + 15);
   doc.setFont('helvetica', 'bold');
   doc.text('Opérateur concerné :', 120, y + 8);
-  doc.text('Nb SIM confirmées :', 120, y + 15);
+  doc.text('Nb MSISDN confirmées :', 120, y + 15);
   doc.setFont('helvetica', 'normal');
   doc.text(operateur, 165, y + 8);
   doc.text(String(sims.length), 165, y + 15);
@@ -170,7 +171,7 @@ export const generateRapportSimbox = (sims: any[], operateur: string, analyste: 
 
   autoTable(doc, {
     startY: y,
-    head: [['Numéro SIM', 'Score', 'App/h', 'Durée moy.', 'Tx échec', '% Nuit', '% Intl', 'Ancienneté']],
+    head: [['MSISDN', 'Score', 'App/h', 'Durée moy.', 'Tx échec', '% Nuit', '% Intl', 'Ancienneté']],
     body: sims.map(a => [
       a.numero_sim,
       `${a.score_suspicion}%`,
@@ -197,7 +198,7 @@ export const generateRapportSimbox = (sims: any[], operateur: string, analyste: 
 };
 
 // ─── ORDRE DE BLOCAGE ────────────────────────────────────────────────────────
-export const generateOrdreBlocage = (ordre: any, sims: string[]) => {
+export const generateOrdreBlocage = (ordre: BlockingOrderReport, sims: string[]) => {
   const doc = new jsPDF();
   addHeader(doc, 'Ordre de Blocage', 'Émis par l\'ARPCE — Application immédiate requise', ordre.operateur);
 
@@ -226,7 +227,7 @@ export const generateOrdreBlocage = (ordre: any, sims: string[]) => {
     ['Date d\'émission', new Date(ordre.date_emission || Date.now()).toLocaleString('fr-FR')],
     ['Date limite', new Date(ordre.date_limite || Date.now()).toLocaleString('fr-FR')],
     ['Opérateur', ordre.operateur],
-    ['Nombre de SIM', String(sims.length)],
+    ['Nombre de MSISDN', String(sims.length)],
   ];
   infos.forEach((info, i) => {
     const col = i < 3 ? 0 : 1;
@@ -241,16 +242,16 @@ export const generateOrdreBlocage = (ordre: any, sims: string[]) => {
 
   y += 34;
 
-  // Liste SIM
+  // Liste MSISDN
   doc.setTextColor(...COLORS.primary);
   doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
-  doc.text('SIM à bloquer immédiatement :', 15, y);
+  doc.text('MSISDN à bloquer immédiatement :', 15, y);
   y += 5;
 
   autoTable(doc, {
     startY: y,
-    head: [['#', 'Numéro SIM', 'Action requise', 'Délai']],
+    head: [['#', 'MSISDN', 'Action requise', 'Délai']],
     body: sims.map((sim, i) => [
       String(i + 1),
       sim,
@@ -273,7 +274,7 @@ export const generateOrdreBlocage = (ordre: any, sims: string[]) => {
 };
 
 // ─── RAPPORT SANCTION ────────────────────────────────────────────────────────
-export const generateRapportSanction = (sanction: any, operateur: string) => {
+export const generateRapportSanction = (sanction: SanctionReport, operateur: string) => {
   const doc = new jsPDF();
   addHeader(doc, 'Rapport de Sanction', 'Avertissement formel — Non-respect du délai de blocage', operateur);
 
@@ -323,3 +324,8 @@ export const generateRapportSanction = (sanction: any, operateur: string) => {
 
   doc.save(`sanction_${operateur}_${new Date().toISOString().slice(0, 10)}.pdf`);
 };
+type ReportAnalysis = Pick<SimAnalysis, 'numero_sim' | 'score_suspicion' | 'niveau_alerte' | 'statut' | 'criteres'>;
+type SanctionReport = Pick<Sanction, 'id' | 'date_sanction' | 'type'> & {
+  email_envoye?: string | null;
+};
+type BlockingOrderReport = Pick<BlockingOrder, 'id' | 'operateur' | 'date_emission' | 'date_limite' | 'delai_heures'>;

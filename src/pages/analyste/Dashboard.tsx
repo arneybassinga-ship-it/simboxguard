@@ -5,13 +5,14 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { ShieldAlert, CheckCircle, XCircle, Clock, TrendingUp } from 'lucide-react';
 import { showError } from '../../utils/toast';
 import { SimAnalysis } from '../../types';
+import { apiUrl } from '../../lib/api';
 
 const AnalysteDashboard = () => {
   const [analyses, setAnalyses] = useState<SimAnalysis[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('http://localhost:4000/api/cdr/analyses')
+    fetch(apiUrl('/api/cdr/analyses'))
       .then(r => r.json()).then(setAnalyses)
       .catch(() => showError('Erreur chargement'))
       .finally(() => setLoading(false));
@@ -45,7 +46,7 @@ const AnalysteDashboard = () => {
   ];
 
   const CARDS = [
-    { label: 'Total SIM analysées', value: stats.total, icon: ShieldAlert, color: 'text-blue-600', bg: 'bg-blue-50' },
+    { label: 'Total MSISDN analysées', value: stats.total, icon: ShieldAlert, color: 'text-blue-600', bg: 'bg-blue-50' },
     { label: 'En attente', value: stats.en_attente, icon: Clock, color: 'text-orange-600', bg: 'bg-orange-50' },
     { label: 'SimBox confirmées', value: stats.confirmees, icon: CheckCircle, color: 'text-red-600', bg: 'bg-red-50' },
     { label: 'Faux positifs', value: stats.refusees, icon: XCircle, color: 'text-green-600', bg: 'bg-green-50' },
@@ -80,7 +81,7 @@ const AnalysteDashboard = () => {
                   <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#64748b' }} />
                   <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} />
                   <Tooltip contentStyle={{ fontSize: '12px', borderRadius: '8px', border: '0.5px solid #e2e8f0' }} />
-                  <Bar dataKey="count" name="SIM" radius={[4, 4, 0, 0]}>
+                  <Bar dataKey="count" name="MSISDN" radius={[4, 4, 0, 0]}>
                     {barData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                   </Bar>
                 </BarChart>
@@ -112,7 +113,7 @@ const AnalysteDashboard = () => {
 
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm">SIM par opérateur</CardTitle>
+          <CardTitle className="text-sm">MSISDN par opérateur</CardTitle>
         </CardHeader>
         <CardContent>
           {loading ? <div className="h-32 flex items-center justify-center text-slate-400 text-sm">Chargement...</div> : (
@@ -122,7 +123,7 @@ const AnalysteDashboard = () => {
                 <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} />
                 <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} />
                 <Tooltip contentStyle={{ fontSize: '12px', borderRadius: '8px' }} />
-                <Bar dataKey="count" name="SIM" radius={[4, 4, 0, 0]}>
+                <Bar dataKey="count" name="MSISDN" radius={[4, 4, 0, 0]}>
                   <Cell fill="#FBBF24" />
                   <Cell fill="#EF4444" />
                 </Bar>

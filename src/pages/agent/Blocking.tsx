@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ShieldAlert, Clock, CheckCircle, AlertTriangle } from 'lucide-react';
 import { showSuccess, showError } from '../../utils/toast';
+import { apiUrl } from '../../lib/api';
 
 interface Ordre {
   id: string; operateur: string; liste_sim_json: string[];
@@ -16,25 +17,26 @@ const AgentBlocking = () => {
   const [ordres, setOrdres] = useState<Ordre[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
+  const [refreshKey, setRefreshKey] = useState(0);
   const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
   const operateur = user.operateur ?? 'MTN';
-
-  const loadOrdres = () => {
-    fetch('http://localhost:4000/api/ordres')
+  
+  useEffect(() => {
+    setLoading(true);
+    fetch(apiUrl('/api/ordres'))
       .then(r => r.json())
       .then(data => setOrdres(data.filter((o: Ordre) => o.operateur === operateur)))
       .finally(() => setLoading(false));
-  };
-  useEffect(() => { loadOrdres(); }, []);
+  }, [operateur, refreshKey]);
 
   const marquerBloque = async (id: string) => {
     setBusy(id);
     try {
-      await fetch(`http://localhost:4000/api/ordres/${id}/bloquer`, { method: 'PATCH' });
-      showSuccess('SIM marquée comme bloquée ✓');
-      loadOrdres();
+      await fetch(apiUrl(`/api/ordres/${id}/bloquer`), { method: 'PATCH' });
+      showSuccess('MSISDN marquée comme bloquée ✓');
+      setRefreshKey(key => key + 1);
     } catch { showError('Erreur'); }
-    setBusy('');
+    finally { setBusy(''); }
   };
 
   const enAttente = ordres.filter(o => o.statut === 'en_attente');

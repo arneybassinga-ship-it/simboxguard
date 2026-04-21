@@ -12,13 +12,16 @@ import Unauthorized from "./pages/Unauthorized";
 import AgentDashboard from "./pages/agent/Dashboard";
 import ImportCDR from "./pages/agent/ImportCDR";
 import AgregationCDR from "./pages/agent/AgregationCDR";
+import SimboxDetection from "./pages/agent/SimboxDetection";
 import AgentAnalyses from "./pages/agent/Analyses";
 import AgentBlocking from "./pages/agent/Blocking";
 
 // Pages Analyste
 import AnalysteDashboard from "./pages/analyste/Dashboard";
 import SuspiciousSims from "./pages/analyste/SuspiciousSims";
+import SimboxValidation from "./pages/analyste/SimboxValidation";
 import AnalysteHistory from "./pages/analyste/History";
+import AnalysteReports from "./pages/analyste/Reports";
 
 // Pages ARPCE
 import ArpceDashboard from "./pages/arpce/Dashboard";
@@ -54,6 +57,11 @@ const App = () => (
               <AgregationCDR />
             </AuthGuard>
           } />
+          <Route path="/agent/simbox" element={
+            <AuthGuard allowedRoles={['AGENT_MTN', 'AGENT_AIRTEL']}>
+              <SimboxDetection />
+            </AuthGuard>
+          } />
           <Route path="/agent/analyses" element={
             <AuthGuard allowedRoles={['AGENT_MTN', 'AGENT_AIRTEL']}>
               <AgentAnalyses />
@@ -76,9 +84,19 @@ const App = () => (
               <SuspiciousSims />
             </AuthGuard>
           } />
+          <Route path="/analyste/simbox" element={
+            <AuthGuard allowedRoles={['ANALYSTE']}>
+              <SimboxValidation />
+            </AuthGuard>
+          } />
           <Route path="/analyste/history" element={
             <AuthGuard allowedRoles={['ANALYSTE']}>
               <AnalysteHistory />
+            </AuthGuard>
+          } />
+          <Route path="/analyste/reports" element={
+            <AuthGuard allowedRoles={['ANALYSTE']}>
+              <AnalysteReports />
             </AuthGuard>
           } />
 

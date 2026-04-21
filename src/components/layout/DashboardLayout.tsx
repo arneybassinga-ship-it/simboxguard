@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { User } from '../../types';
 import {
   LayoutDashboard, FileUp, ShieldAlert, FileText,
-  LogOut, Bell, User as UserIcon, Activity, Ban, ChevronRight, Database
+  LogOut, Bell, User as UserIcon, Activity, Ban, ChevronRight, Database, ScanSearch
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -72,6 +72,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
       { icon: LayoutDashboard, label: 'Tableau de bord', path: '/agent/dashboard' },
       { icon: FileUp, label: 'Importer CDR', path: '/agent/import' },
       { icon: Database, label: 'Agréger CDR', path: '/agent/agregation' },
+      { icon: ScanSearch, label: 'Détecter Simbox', path: '/agent/simbox' },
       { icon: FileText, label: 'Mes Analyses', path: '/agent/analyses' },
       { icon: Ban, label: 'Ordres de Blocage', path: '/agent/blocking' },
     ],
@@ -79,12 +80,15 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
       { icon: LayoutDashboard, label: 'Tableau de bord', path: '/agent/dashboard' },
       { icon: FileUp, label: 'Importer CDR', path: '/agent/import' },
       { icon: Database, label: 'Agréger CDR', path: '/agent/agregation' },
+      { icon: ScanSearch, label: 'Détecter Simbox', path: '/agent/simbox' },
       { icon: FileText, label: 'Mes Analyses', path: '/agent/analyses' },
       { icon: Ban, label: 'Ordres de Blocage', path: '/agent/blocking' },
     ],
     ANALYSTE: [
       { icon: LayoutDashboard, label: 'Tableau de bord', path: '/analyste/dashboard' },
-      { icon: ShieldAlert, label: 'SIM Suspectes', path: '/analyste/suspicious' },
+      { icon: ShieldAlert, label: 'MSISDN suspectes', path: '/analyste/suspicious' },
+      { icon: ScanSearch, label: 'Simbox Détectées', path: '/analyste/simbox' },
+      { icon: FileText, label: 'Rapports Analyste', path: '/analyste/reports' },
       { icon: Activity, label: 'Historique', path: '/analyste/history' },
     ],
     ARPCE: [

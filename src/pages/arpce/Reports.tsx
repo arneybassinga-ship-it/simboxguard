@@ -5,6 +5,12 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { FileText, ShieldAlert } from 'lucide-react';
 import { showSuccess, showError } from '../../utils/toast';
+import { apiUrl } from '../../lib/api';
+
+interface RapportSim {
+  id: string;
+  numero_sim: string;
+}
 
 interface Rapport {
   id: string;
@@ -12,12 +18,27 @@ interface Rapport {
   operateur: string;
   date_envoi: string;
   statut_lu: boolean;
+  reference_unique?: string | null;
+  statut_rapport?: string;
+  analyste_nom?: string | null;
+  date_signature?: string | null;
   contenu_json: {
     titre: string;
     total: number;
-    sims_confirmees?: any[];
+    reference?: string | null;
+    signature?: {
+      analyste_nom?: string | null;
+      date_signature?: string | null;
+    };
+    analyses?: RapportSim[];
+    sims_confirmees?: RapportSim[];
   };
 }
+
+const getRapportSims = (rapport: Rapport): RapportSim[] =>
+  rapport.contenu_json.sims_confirmees
+  ?? rapport.contenu_json.analyses
+  ?? [];
 
 const ArpceReports = () => {
   const [rapports, setRapports] = useState<Rapport[]>([]);
@@ -28,7 +49,7 @@ const ArpceReports = () => {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    fetch('http://localhost:4000/api/rapports?role=arpce')
+    fetch(apiUrl('/api/rapports?role=arpce'))
       .then(r => r.json())
       .then(setRapports)
       .catch(() => showError('Erreur chargement rapports'))
@@ -43,9 +64,9 @@ const ArpceReports = () => {
     if (!modalBlocage) return;
     setSubmitting(true);
     try {
-      const sims = modalBlocage.contenu_json.sims_confirmees?.map((s: any) => s.numero_sim) ?? [];
-      if (sims.length === 0) throw new Error('Aucune SIM à bloquer dans ce rapport');
-      const resp = await fetch('http://localhost:4000/api/ordres/bloquer', {
+      const sims = getRapportSims(modalBlocage).map((s) => s.numero_sim);
+      if (sims.length === 0) throw new Error('Aucune MSISDN à bloquer dans ce rapport');
+      const resp = await fetch(apiUrl('/api/ordres/bloquer'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -57,10 +78,10 @@ const ArpceReports = () => {
       });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error);
-      showSuccess(`Ordre émis — ${sims.length} SIM(s) — délai ${delaiChoisi}h ✓`);
+      showSuccess(`Ordre émis — ${sims.length} MSISDN — délai ${delaiChoisi}h ✓`);
       setModalBlocage(null);
-    } catch (err: any) {
-      showError(err.message);
+    } catch (err) {
+      showError(err instanceof Error ? err.message : "Erreur lors de l'émission de l'ordre");
     } finally {
       setSubmitting(false);
     }
@@ -133,6 +154,14 @@ const ArpceReports = () => {
                         </span>
                       )}
                     </div>
+                    <div className="flex flex-wrap gap-2 mt-2 text-[10px] text-slate-500">
+                      <span className="px-2 py-0.5 rounded bg-slate-100">
+                        Ref: <span className="font-bold text-slate-700">{r.reference_unique || r.contenu_json?.reference || 'N/A'}</span>
+                      </span>
+                      <span className="px-2 py-0.5 rounded bg-slate-100">
+                        Statut: <span className="font-bold text-slate-700">{(r.statut_rapport || 'envoye').toUpperCase()}</span>
+                      </span>
+                    </div>
                   </div>
                 </div>
 
@@ -141,7 +170,7 @@ const ArpceReports = () => {
                     <p className="text-2xl font-bold text-red-600">
                       {r.contenu_json?.total ?? 0}
                     </p>
-                    <p className="text-[10px] text-slate-400">SIM à bloquer</p>
+                    <p className="text-[10px] text-slate-400">MSISDN à bloquer</p>
                   </div>
                   <Button size="sm"
                     onClick={() => { setModalBlocage(r); setDelaiChoisi(48); }}
@@ -152,13 +181,20 @@ const ArpceReports = () => {
                 </div>
               </div>
 
-              {r.contenu_json?.sims_confirmees && r.contenu_json.sims_confirmees.length > 0 && (
+              {getRapportSims(r).length > 0 && (
                 <div className="mt-4 pt-3 border-t border-slate-100">
+                  <p className="text-[10px] text-slate-500 mb-2">
+                    Signe par {r.analyste_nom || r.contenu_json?.signature?.analyste_nom || 'Analyste fraude'}
+                    {' · '}
+                    {r.date_signature || r.contenu_json?.signature?.date_signature
+                      ? new Date(r.date_signature || r.contenu_json.signature?.date_signature || '').toLocaleString('fr-FR')
+                      : 'non envoye'}
+                  </p>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-                    SIM confirmées
+                    MSISDN confirmées
                   </p>
                   <div className="flex flex-wrap gap-1">
-                    {r.contenu_json.sims_confirmees.map((s: any) => (
+                    {getRapportSims(r).map((s) => (
                       <span key={s.id}
                         className="font-mono text-[10px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded">
                         {s.numero_sim}
@@ -183,17 +219,17 @@ const ArpceReports = () => {
               <div>
                 <h2 className="text-base font-bold text-slate-800">Ordre de blocage</h2>
                 <p className="text-xs text-slate-400">
-                  {modalBlocage.operateur} — {modalBlocage.contenu_json?.total ?? 0} SIM(s)
+                  {modalBlocage.operateur} — {modalBlocage.contenu_json?.total ?? 0} MSISDN
                 </p>
               </div>
             </div>
 
             <div className="bg-slate-50 rounded-xl p-3 mb-5 max-h-32 overflow-y-auto">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-                SIM concernées
+                MSISDN concernées
               </p>
               <div className="flex flex-wrap gap-1">
-                {(modalBlocage.contenu_json?.sims_confirmees ?? []).map((s: any) => (
+                {getRapportSims(modalBlocage).map((s) => (
                   <span key={s.id}
                     className="font-mono text-[10px] bg-white border border-slate-200 text-slate-700 px-2 py-0.5 rounded">
                     {s.numero_sim}

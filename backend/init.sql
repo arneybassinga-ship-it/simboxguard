@@ -58,6 +58,13 @@ CREATE TABLE IF NOT EXISTS rapports (
   statut_lu BOOLEAN DEFAULT FALSE
 );
 
+ALTER TABLE rapports ADD COLUMN IF NOT EXISTS reference_unique VARCHAR(40) NULL;
+ALTER TABLE rapports ADD COLUMN IF NOT EXISTS statut_rapport ENUM('brouillon','envoye','consulte','traite') DEFAULT 'envoye';
+ALTER TABLE rapports ADD COLUMN IF NOT EXISTS analyste_nom VARCHAR(120) NULL;
+ALTER TABLE rapports ADD COLUMN IF NOT EXISTS date_signature DATETIME NULL;
+ALTER TABLE rapports ADD COLUMN IF NOT EXISTS periode_debut DATE NULL;
+ALTER TABLE rapports ADD COLUMN IF NOT EXISTS periode_fin DATE NULL;
+
 CREATE TABLE IF NOT EXISTS ordres_blocage (
   id VARCHAR(36) PRIMARY KEY,
   rapport_id VARCHAR(36) NOT NULL,
@@ -110,3 +117,5 @@ CREATE INDEX IF NOT EXISTS idx_sim_analyses_statut
   ON sim_analyses(statut);
 CREATE INDEX IF NOT EXISTS idx_simbox_statut
   ON simbox_detectees(statut);
+CREATE INDEX IF NOT EXISTS idx_rapports_reference
+  ON rapports(reference_unique);

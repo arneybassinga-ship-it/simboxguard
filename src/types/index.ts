@@ -91,3 +91,42 @@ export interface Sanction {
   operateur: Operator;
   details: string;
 }
+
+export type ReportStatus = 'brouillon' | 'envoye' | 'consulte' | 'traite';
+export type ReportDestination = 'arpce' | 'agent_mtn' | 'agent_airtel';
+
+export interface ReportSignature {
+  analyste_nom: string | null;
+  date_signature: string | null;
+}
+
+export interface AnalystReportContent {
+  titre: string;
+  reference: string | null;
+  total: number;
+  operateur: string;
+  analyses?: SimAnalysis[];
+  sims_confirmees?: SimAnalysis[];
+  periode?: {
+    date_debut: string | null;
+    date_fin: string | null;
+  };
+  signature?: ReportSignature;
+}
+
+export interface AnalystReport {
+  id: string;
+  type: 'simbox' | 'cdr' | 'blocage' | 'sanction';
+  expediteur_role: string;
+  destinataire_role: string;
+  operateur: string;
+  contenu_json: AnalystReportContent;
+  date_envoi: string;
+  statut_lu: boolean;
+  statut_rapport: ReportStatus;
+  reference_unique: string | null;
+  analyste_nom: string | null;
+  date_signature: string | null;
+  periode_debut: string | null;
+  periode_fin: string | null;
+}

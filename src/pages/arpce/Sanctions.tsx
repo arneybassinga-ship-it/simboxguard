@@ -5,26 +5,31 @@ import { Button } from '@/components/ui/button';
 import { AlertOctagon, AlertTriangle, CheckCircle } from 'lucide-react';
 import { showSuccess, showError } from '../../utils/toast';
 import { BlockingOrder, Sanction } from '../../types';
+import { apiUrl } from '../../lib/api';
+
+type BlockingOrderWithList = BlockingOrder & {
+  liste_sim_json?: string[];
+};
 
 const ArpceSanctions = () => {
-  const [ordres, setOrdres] = useState<BlockingOrder[]>([]);
+  const [ordres, setOrdres] = useState<BlockingOrderWithList[]>([]);
   const [sanctions, setSanctions] = useState<Sanction[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
 
   const loadData = () => {
     Promise.all([
-      fetch('http://localhost:4000/api/ordres').then(r => r.json()),
-      fetch('http://localhost:4000/api/sanctions').then(r => r.json()),
+      fetch(apiUrl('/api/ordres')).then(r => r.json()),
+      fetch(apiUrl('/api/sanctions')).then(r => r.json()),
     ]).then(([o, s]) => { setOrdres(o); setSanctions(s); })
     .finally(() => setLoading(false));
   };
   useEffect(() => { loadData(); }, []);
 
-  const envoyer = async (ordre: any) => {
+  const envoyer = async (ordre: BlockingOrderWithList) => {
     setBusy(ordre.id);
     try {
-      const resp = await fetch('http://localhost:4000/api/sanctions/avertir', {
+      const resp = await fetch(apiUrl('/api/sanctions/avertir'), {
         method: 'POST', headers: {'Content-Type':'application/json'},
         body: JSON.stringify({ ordre_id: ordre.id, operateur: ordre.operateur })
       });
@@ -34,7 +39,7 @@ const ArpceSanctions = () => {
       }
       showSuccess(`Avertissement envoyé à ${ordre.operateur} ✓`);
       loadData();
-    } catch (e: any) { showError(e.message || 'Erreur'); }
+    } catch (e) { showError(e instanceof Error ? e.message : 'Erreur'); }
     setBusy('');
   };
 
