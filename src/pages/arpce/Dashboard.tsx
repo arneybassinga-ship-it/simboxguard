@@ -1,14 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { ShieldAlert, Clock, CheckCircle, AlertTriangle, FileText } from 'lucide-react';
 import { showError } from '../../utils/toast';
+import { SimAnalysis, BlockingOrder, Sanction } from '../../types';
 
 const ARPCEDashboard = () => {
-  const [analyses, setAnalyses] = useState<any[]>([]);
-  const [ordres, setOrdres] = useState<any[]>([]);
-  const [sanctions, setSanctions] = useState<any[]>([]);
+  const [analyses, setAnalyses] = useState<SimAnalysis[]>([]);
+  const [ordres, setOrdres] = useState<BlockingOrder[]>([]);
+  const [sanctions, setSanctions] = useState<Sanction[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

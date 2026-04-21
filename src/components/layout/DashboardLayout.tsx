@@ -1,9 +1,9 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User } from '../../types';
-import { 
-  LayoutDashboard, FileUp, ShieldAlert, FileText, 
-  LogOut, Bell, User as UserIcon, Activity, Ban, ChevronRight
+import {
+  LayoutDashboard, FileUp, ShieldAlert, FileText,
+  LogOut, Bell, User as UserIcon, Activity, Ban, ChevronRight, Database
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -71,12 +71,14 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
     AGENT_MTN: [
       { icon: LayoutDashboard, label: 'Tableau de bord', path: '/agent/dashboard' },
       { icon: FileUp, label: 'Importer CDR', path: '/agent/import' },
+      { icon: Database, label: 'Agréger CDR', path: '/agent/agregation' },
       { icon: FileText, label: 'Mes Analyses', path: '/agent/analyses' },
       { icon: Ban, label: 'Ordres de Blocage', path: '/agent/blocking' },
     ],
     AGENT_AIRTEL: [
       { icon: LayoutDashboard, label: 'Tableau de bord', path: '/agent/dashboard' },
       { icon: FileUp, label: 'Importer CDR', path: '/agent/import' },
+      { icon: Database, label: 'Agréger CDR', path: '/agent/agregation' },
       { icon: FileText, label: 'Mes Analyses', path: '/agent/analyses' },
       { icon: Ban, label: 'Ordres de Blocage', path: '/agent/blocking' },
     ],

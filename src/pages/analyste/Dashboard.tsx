@@ -1,12 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { ShieldAlert, CheckCircle, XCircle, Clock, TrendingUp } from 'lucide-react';
 import { showError } from '../../utils/toast';
+import { SimAnalysis } from '../../types';
 
 const AnalysteDashboard = () => {
-  const [analyses, setAnalyses] = useState<any[]>([]);
+  const [analyses, setAnalyses] = useState<SimAnalysis[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

@@ -11,6 +11,7 @@ import Unauthorized from "./pages/Unauthorized";
 // Pages Agent
 import AgentDashboard from "./pages/agent/Dashboard";
 import ImportCDR from "./pages/agent/ImportCDR";
+import AgregationCDR from "./pages/agent/AgregationCDR";
 import AgentAnalyses from "./pages/agent/Analyses";
 import AgentBlocking from "./pages/agent/Blocking";
 
@@ -46,6 +47,11 @@ const App = () => (
           <Route path="/agent/import" element={
             <AuthGuard allowedRoles={['AGENT_MTN', 'AGENT_AIRTEL']}>
               <ImportCDR />
+            </AuthGuard>
+          } />
+          <Route path="/agent/agregation" element={
+            <AuthGuard allowedRoles={['AGENT_MTN', 'AGENT_AIRTEL']}>
+              <AgregationCDR />
             </AuthGuard>
           } />
           <Route path="/agent/analyses" element={

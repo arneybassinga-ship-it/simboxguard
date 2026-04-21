@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -63,7 +63,8 @@ const ImportCDR = () => {
         setUploading(false);
         setFile(null);
         setProgress(0);
-        showSuccess(`Importation réussie : ${result.nb_lignes} lignes, ${result.analyses.length} analyses générées`);
+        const rejetees = result.nb_lignes_rejetees > 0 ? ` (${result.nb_lignes_rejetees} lignes rejetées)` : '';
+      showSuccess(`Importation réussie : ${result.nb_lignes} lignes stockées${rejetees}. Rendez-vous dans "Agréger CDR" pour lancer l'analyse.`);
       }, 700);
     } catch (err) {
       console.error(err);
@@ -149,8 +150,8 @@ const ImportCDR = () => {
           <div className="p-4 bg-blue-50 rounded-lg border border-blue-100 flex gap-3">
             <AlertCircle className="text-blue-600 shrink-0" size={20} />
             <div>
-              <p className="text-sm font-bold text-blue-800">Analyse immédiate</p>
-              <p className="text-xs text-blue-700">L'algorithme de détection s'exécute dès la fin de l'importation.</p>
+              <p className="text-sm font-bold text-blue-800">Étape suivante</p>
+              <p className="text-xs text-blue-700">Après l'import, rendez-vous dans <strong>Agréger CDR</strong> pour lancer l'analyse sur une période.</p>
             </div>
           </div>
         </div>

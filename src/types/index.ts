@@ -65,6 +65,24 @@ export interface BlockingOrder {
   delai_heures: number;
 }
 
+export interface SimboxDetection {
+  id: string;
+  periode_debut: string;
+  periode_fin: string;
+  operateur: Operator;
+  agent_id: string;
+  sims: string[];
+  nb_sims: number;
+  similarite_moyenne: number;
+  score_rotation: number;
+  score_global: number;
+  niveau: 'suspect' | 'probable' | 'confirme';
+  statut: 'en_attente' | 'validee' | 'rejetee';
+  motif_rejet?: string;
+  date_detection: string;
+  contacts_communs: string[];
+}
+
 export interface Sanction {
   id: string;
   ordre_id: string;

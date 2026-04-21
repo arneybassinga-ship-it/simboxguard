@@ -1,14 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 import { AlertOctagon, AlertTriangle, CheckCircle } from 'lucide-react';
 import { showSuccess, showError } from '../../utils/toast';
+import { BlockingOrder, Sanction } from '../../types';
 
 const ArpceSanctions = () => {
-  const [ordres, setOrdres] = useState<any[]>([]);
-  const [sanctions, setSanctions] = useState<any[]>([]);
+  const [ordres, setOrdres] = useState<BlockingOrder[]>([]);
+  const [sanctions, setSanctions] = useState<Sanction[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
 
