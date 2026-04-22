@@ -75,11 +75,11 @@ const SimboxCard = ({
           {item.statut === 'en_attente' && (
             <>
               <Button size="sm" disabled={busy} onClick={() => onValider(item.id)}
-                className="bg-red-600 hover:bg-red-700 text-white text-xs h-7 px-2 gap-1">
+                className="bg-red-500 hover:bg-red-400 text-white text-xs h-7 px-2 gap-1">
                 <CheckCircle size={11} /> Valider
               </Button>
               <Button size="sm" variant="outline" disabled={busy} onClick={() => onRefuser(item)}
-                className="text-xs h-7 px-2 gap-1 border-slate-600 hover:border-orange-400 hover:text-orange-400 text-slate-300">
+                className="text-xs h-7 px-2 gap-1 border-orange-500/30 bg-orange-500/10 hover:border-orange-400 hover:bg-orange-500/20 hover:text-orange-300 text-orange-400">
                 <XCircle size={11} /> Rejeter
               </Button>
             </>
@@ -228,7 +228,7 @@ const SimboxValidation = () => {
         {(['tous', 'en_attente', 'validee', 'rejetee'] as const).map(f => (
           <button key={f} onClick={() => setFiltre(f)}
             className={cn('px-3 py-1 rounded-full text-xs font-bold border transition-all',
-              filtre === f ? 'bg-blue-600 text-white border-blue-600' : 'border-slate-600 text-slate-400 hover:border-white/30')}>
+              filtre === f ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' : 'border-white/15 text-slate-400 hover:text-white hover:border-white/30')}>
             {f === 'tous' ? 'Tous' : f === 'en_attente' ? 'En attente' : f === 'validee' ? 'Validés' : 'Rejetés'}
           </button>
         ))}
@@ -276,7 +276,7 @@ const SimboxValidation = () => {
             <div className="mb-4">
               <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">Motif</label>
               <select value={motif} onChange={e => setMotif(e.target.value)}
-                className="w-full bg-white/5 border border-white/20 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500">
+                className="w-full bg-white/5 border border-white/20 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-yellow-500">
                 {MOTIFS_REJET.map(m => <option key={m} className="bg-slate-900">{m}</option>)}
               </select>
             </div>
@@ -285,11 +285,11 @@ const SimboxValidation = () => {
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">Préciser</label>
                 <textarea value={details} onChange={e => setDetails(e.target.value)} rows={3}
                   placeholder="Expliquez pourquoi c'est un faux positif..."
-                  className="w-full bg-white/5 border border-white/20 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none" />
+                  className="w-full bg-white/5 border border-white/20 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-yellow-500 resize-none" />
               </div>
             )}
             <div className="flex gap-3 mt-2">
-              <Button onClick={handleRejeter} disabled={busy} className="flex-1 bg-orange-500 hover:bg-orange-600">
+              <Button onClick={handleRejeter} disabled={busy} className="flex-1 bg-orange-500 hover:bg-orange-400 text-white">
                 {busy ? 'Enregistrement...' : 'Confirmer le rejet'}
               </Button>
               <Button variant="outline" onClick={() => setModalRejet(null)}

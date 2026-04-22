@@ -22,50 +22,18 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
     navigate('/');
   };
 
-  const getThemeConfig = () => {
-    if (user.role === 'AGENT_MTN') return {
-      sidebarBg: "bg-blue-900/40", sidebarBorder: "border-blue-500/30",
-      primary: "text-yellow-400", accent: "bg-yellow-400/20 border-yellow-400/30",
-      glow1: "bg-blue-600/30", glow2: "bg-yellow-500/20",
-      navActive: "bg-yellow-400/20 text-yellow-400 border-yellow-400/30 shadow-[0_0_20px_rgba(250,204,21,0.2)]",
-      badge: "bg-yellow-400/10 text-yellow-400 border-yellow-400/30",
-      headerBorder: "border-blue-500/20", iconColor: "text-blue-400"
-    };
-    if (user.role === 'AGENT_AIRTEL') return {
-      sidebarBg: "bg-red-950/40", sidebarBorder: "border-red-500/30",
-      primary: "text-white", accent: "bg-white/10 border-white/20",
-      glow1: "bg-red-600/30", glow2: "bg-white/10",
-      navActive: "bg-white/10 text-white border-white/30 shadow-[0_0_20px_rgba(255,255,255,0.1)]",
-      badge: "bg-white/10 text-white border-white/20",
-      headerBorder: "border-red-500/20", iconColor: "text-red-500"
-    };
-    if (user.role === 'ANALYSTE') return {
-      sidebarBg: "bg-amber-950/40", sidebarBorder: "border-yellow-500/30",
-      primary: "text-yellow-500", accent: "bg-yellow-500/20 border-yellow-500/30",
-      glow1: "bg-yellow-600/30", glow2: "bg-orange-500/20",
-      navActive: "bg-yellow-500/20 text-yellow-500 border-yellow-500/30 shadow-[0_0_20px_rgba(234,179,8,0.2)]",
-      badge: "bg-yellow-500/10 text-yellow-500 border-yellow-500/20",
-      headerBorder: "border-yellow-500/20", iconColor: "text-yellow-500"
-    };
-    if (user.role === 'ARPCE') return {
-      sidebarBg: "bg-red-950/60", sidebarBorder: "border-red-800/40",
-      primary: "text-green-400", accent: "bg-green-500/20 border-green-500/30",
-      glow1: "bg-red-900/40", glow2: "bg-green-600/20",
-      navActive: "bg-green-500/20 text-green-400 border-green-500/30 shadow-[0_0_20px_rgba(34,197,94,0.2)]",
-      badge: "bg-green-500/10 text-green-500 border-green-500/20",
-      headerBorder: "border-red-900/30", iconColor: "text-red-600"
-    };
-    return {
-      sidebarBg: "bg-[#0f172a]/40", sidebarBorder: "border-white/5",
-      primary: "text-blue-400", accent: "bg-blue-500/20 border-blue-500/30",
-      glow1: "bg-blue-600/10", glow2: "bg-indigo-600/10",
-      navActive: "bg-blue-600/20 text-blue-400 border-blue-500/20",
-      badge: "bg-blue-500/10 text-blue-500 border-blue-500/20",
-      headerBorder: "border-white/5", iconColor: "text-blue-400"
-    };
+  const theme = {
+    sidebarBg: "bg-[#0f172a]/40",
+    sidebarBorder: "border-blue-500/20",
+    primary: "text-yellow-400",
+    accent: "bg-yellow-400/20 border-yellow-400/30",
+    glow1: "bg-blue-600/20",
+    glow2: "bg-indigo-600/20",
+    navActive: "bg-yellow-400/20 text-yellow-400 border-yellow-400/30 shadow-[0_0_20px_rgba(250,204,21,0.2)]",
+    badge: "bg-blue-500/10 text-blue-300 border-blue-500/20",
+    headerBorder: "border-blue-500/20",
+    iconColor: "text-blue-400",
   };
-
-  const theme = getThemeConfig();
 
   const menuItems = {
     AGENT_MTN: [
@@ -175,9 +143,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
             <div className="flex items-center gap-4 mb-5">
               <div className={cn(
                 "w-12 h-12 rounded-2xl flex items-center justify-center shadow-2xl border border-white/10 flex-shrink-0",
-                user.role === 'AGENT_MTN' ? "bg-blue-600" :
-                user.role === 'AGENT_AIRTEL' ? "bg-red-600" :
-                user.role === 'ANALYSTE' ? "bg-yellow-500" : "bg-red-900"
+                "bg-blue-600"
               )}>
                 <UserIcon size={20} className="text-white" />
               </div>
@@ -225,9 +191,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
             <div className="flex items-center gap-2 mt-1">
               <div className={cn(
                 "w-2 h-2 rounded-full animate-pulse",
-                user.role === 'AGENT_MTN' ? "bg-yellow-400" :
-                user.role === 'AGENT_AIRTEL' ? "bg-white" :
-                user.role === 'ANALYSTE' ? "bg-yellow-500" : "bg-green-400"
+                "bg-yellow-400"
               )} />
               <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em]">
                 {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
@@ -248,9 +212,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
               <Bell size={22} />
               <span className={cn(
                 "absolute top-3 right-3 w-3 h-3 rounded-full border-2 border-[#020617]",
-                user.role === 'AGENT_MTN' ? "bg-yellow-400" :
-                user.role === 'AGENT_AIRTEL' ? "bg-white" :
-                user.role === 'ANALYSTE' ? "bg-yellow-500" : "bg-green-400"
+                "bg-yellow-400"
               )} />
             </button>
           </div>

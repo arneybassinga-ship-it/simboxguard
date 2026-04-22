@@ -31,26 +31,26 @@ const History = () => {
   return (
     <DashboardLayout title="Historique des décisions">
       <div className="grid grid-cols-3 gap-4 mb-5">
-        <div className="bg-red-50 rounded-2xl p-4">
+        <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-1">
-            <CheckCircle size={14} className="text-red-600"/>
-            <p className="text-xs text-slate-500 font-medium">SIMs frauduleuses</p>
+            <CheckCircle size={14} className="text-red-400"/>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">SIMs frauduleuses</p>
           </div>
-          <p className="text-3xl font-bold text-red-600">{stats.confirmees}</p>
+          <p className="text-3xl font-black text-red-400">{stats.confirmees}</p>
         </div>
-        <div className="bg-orange-50 rounded-2xl p-4">
+        <div className="bg-orange-500/10 border border-orange-500/20 rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-1">
-            <XCircle size={14} className="text-orange-600"/>
-            <p className="text-xs text-slate-500 font-medium">Faux positifs refusés</p>
+            <XCircle size={14} className="text-orange-400"/>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Faux positifs refusés</p>
           </div>
-          <p className="text-3xl font-bold text-orange-600">{stats.refusees}</p>
+          <p className="text-3xl font-black text-orange-400">{stats.refusees}</p>
         </div>
-        <div className="bg-blue-50 rounded-2xl p-4">
+        <div className="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-1">
-            <Clock size={14} className="text-blue-600"/>
-            <p className="text-xs text-slate-500 font-medium">En attente</p>
+            <Clock size={14} className="text-blue-400"/>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">En attente</p>
           </div>
-          <p className="text-3xl font-bold text-blue-600">{stats.en_attente}</p>
+          <p className="text-3xl font-black text-blue-400">{stats.en_attente}</p>
         </div>
       </div>
 
@@ -58,41 +58,41 @@ const History = () => {
         {['tous','confirmee','refusee'].map(f => (
           <button key={f} onClick={() => setFiltre(f)}
             className={cn('px-3 py-1 rounded-full text-xs font-bold border transition-all',
-              filtre===f ? 'bg-blue-600 text-white border-blue-600' : 'border-slate-300 text-slate-500')}>
+              filtre===f ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' : 'border-white/15 text-slate-400 hover:text-white hover:border-white/30')}>
             {f === 'tous' ? 'TOUS' : f === 'confirmee' ? 'FRAUDULEUSES' : 'REFUSÉES'}
           </button>
         ))}
       </div>
 
-      <Card>
-        <CardHeader><CardTitle className="text-lg">
+      <Card className="bg-white/5 border-white/10">
+        <CardHeader><CardTitle className="text-lg text-white">
           Décisions prises <span className="text-sm font-normal text-slate-400">({filtered.length})</span>
         </CardTitle></CardHeader>
         <CardContent>
           {loading ? <p className="text-slate-400">Chargement...</p> : (
             <Table>
-              <TableHeader><TableRow>
-                <TableHead>MSISDN</TableHead>
-                <TableHead>Opérateur</TableHead>
-                <TableHead>Score</TableHead>
-                <TableHead>Décision</TableHead>
-                <TableHead>Motif refus</TableHead>
-                <TableHead>Date décision</TableHead>
+              <TableHeader><TableRow className="border-white/10 hover:bg-transparent">
+                <TableHead className="text-slate-400">MSISDN</TableHead>
+                <TableHead className="text-slate-400">Opérateur</TableHead>
+                <TableHead className="text-slate-400">Score</TableHead>
+                <TableHead className="text-slate-400">Décision</TableHead>
+                <TableHead className="text-slate-400">Motif refus</TableHead>
+                <TableHead className="text-slate-400">Date décision</TableHead>
               </TableRow></TableHeader>
               <TableBody>
                 {filtered.length > 0 ? filtered.map(item => (
-                  <TableRow key={item.id}>
-                    <TableCell className="font-mono font-bold text-xs">{item.numero_sim}</TableCell>
+                  <TableRow key={item.id} className="border-white/5 hover:bg-white/5">
+                    <TableCell className="font-mono font-bold text-xs text-white">{item.numero_sim}</TableCell>
                     <TableCell>
                       <span className={cn('px-2 py-0.5 rounded text-[10px] font-bold',
-                        item.operateur==='MTN'?'bg-yellow-100 text-yellow-800':'bg-red-100 text-red-700')}>
+                        item.operateur==='MTN'?'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20':'bg-red-500/10 text-red-400 border border-red-500/20')}>
                         {item.operateur}
                       </span>
                     </TableCell>
-                    <TableCell className="text-xs font-bold">{item.score_suspicion}%</TableCell>
+                    <TableCell className="text-xs font-bold text-white">{item.score_suspicion}%</TableCell>
                     <TableCell>
                       <span className={cn('flex items-center gap-1 text-xs font-bold',
-                        item.statut==='confirmee' ? 'text-red-600' : 'text-orange-500')}>
+                        item.statut==='confirmee' ? 'text-red-400' : 'text-orange-400')}>
                         {item.statut==='confirmee'
                           ? <><CheckCircle size={12}/> SIM frauduleuse</>
                           : <><XCircle size={12}/> Faux positif</>}

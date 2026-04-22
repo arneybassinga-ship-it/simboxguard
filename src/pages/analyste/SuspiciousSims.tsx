@@ -73,7 +73,7 @@ const SuspiciousSims = () => {
         {['tous','MTN','AIRTEL'].map(op => (
           <button key={op} onClick={() => setFiltreOp(op)}
             className={cn('px-3 py-1 rounded-full text-xs font-bold border transition-all',
-              filtreOp===op ? 'bg-blue-600 text-white border-blue-600' : 'border-slate-300 text-slate-500')}>
+              filtreOp===op ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' : 'border-white/15 text-slate-400 hover:text-white hover:border-white/30')}>
             {op.toUpperCase()}
           </button>
         ))}
@@ -81,60 +81,60 @@ const SuspiciousSims = () => {
         {['tous','critique','elevee','normale'].map(n => (
           <button key={n} onClick={() => setFiltreNiveau(n)}
             className={cn('px-3 py-1 rounded-full text-xs font-bold border transition-all',
-              filtreNiveau===n ? 'bg-blue-600 text-white border-blue-600' : 'border-slate-300 text-slate-500')}>
+              filtreNiveau===n ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' : 'border-white/15 text-slate-400 hover:text-white hover:border-white/30')}>
             {n.toUpperCase()}
           </button>
         ))}
       </div>
 
-      <Card>
-        <CardHeader><CardTitle className="text-lg">
+      <Card className="bg-white/5 border-white/10">
+        <CardHeader><CardTitle className="text-lg text-white">
           MSISDN en attente <span className="text-sm font-normal text-slate-400">({filtered.length})</span>
         </CardTitle></CardHeader>
         <CardContent>
           {loading ? <p className="text-slate-400">Chargement...</p> : (
             <Table>
-              <TableHeader><TableRow>
-                <TableHead>MSISDN</TableHead><TableHead>Opérateur</TableHead>
-                <TableHead>Score</TableHead><TableHead>Niveau</TableHead>
-                <TableHead>Durée moy.</TableHead><TableHead>App/h</TableHead>
-                <TableHead>Actions</TableHead>
+              <TableHeader><TableRow className="border-white/10 hover:bg-transparent">
+                <TableHead className="text-slate-400">MSISDN</TableHead><TableHead className="text-slate-400">Opérateur</TableHead>
+                <TableHead className="text-slate-400">Score</TableHead><TableHead className="text-slate-400">Niveau</TableHead>
+                <TableHead className="text-slate-400">Durée moy.</TableHead><TableHead className="text-slate-400">App/h</TableHead>
+                <TableHead className="text-slate-400">Actions</TableHead>
               </TableRow></TableHeader>
               <TableBody>
                 {filtered.length > 0 ? filtered.map(item => (
-                  <TableRow key={item.id}>
-                    <TableCell className="font-mono font-bold text-xs">{item.numero_sim}</TableCell>
+                  <TableRow key={item.id} className="border-white/5 hover:bg-white/5">
+                    <TableCell className="font-mono font-bold text-xs text-white">{item.numero_sim}</TableCell>
                     <TableCell>
                       <span className={cn('px-2 py-0.5 rounded text-[10px] font-bold',
-                        item.operateur==='MTN' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-700')}>
+                        item.operateur==='MTN' ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20')}>
                         {item.operateur}
                       </span>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <div className="w-14 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                        <div className="w-14 h-1.5 bg-white/10 rounded-full overflow-hidden">
                           <div className={cn('h-full rounded-full', item.score_suspicion>=60?'bg-red-500':item.score_suspicion>=40?'bg-orange-400':'bg-green-400')}
                             style={{width:`${item.score_suspicion}%`}}/>
                         </div>
-                        <span className="text-xs font-bold">{item.score_suspicion}%</span>
+                        <span className="text-xs font-bold text-white">{item.score_suspicion}%</span>
                       </div>
                     </TableCell>
                     <TableCell>
                       <span className={cn('px-2 py-0.5 rounded text-[10px] font-bold',
-                        item.niveau_alerte==='critique'?'bg-red-100 text-red-800':item.niveau_alerte==='elevee'?'bg-orange-100 text-orange-800':'bg-green-100 text-green-800')}>
+                        item.niveau_alerte==='critique'?'bg-red-500/10 text-red-400 border border-red-500/20':item.niveau_alerte==='elevee'?'bg-orange-500/10 text-orange-400 border border-orange-500/20':'bg-green-500/10 text-green-400 border border-green-500/20')}>
                         {item.niveau_alerte.toUpperCase()}
                       </span>
                     </TableCell>
-                    <TableCell className="text-xs">{item.criteres?.duree_moyenne ? `${Math.round(item.criteres.duree_moyenne)}s` : '-'}</TableCell>
-                    <TableCell className="text-xs">{item.criteres?.appels_par_heure ?? '-'}</TableCell>
+                    <TableCell className="text-xs text-slate-300">{item.criteres?.duree_moyenne ? `${Math.round(item.criteres.duree_moyenne)}s` : '-'}</TableCell>
+                    <TableCell className="text-xs text-slate-300">{item.criteres?.appels_par_heure ?? '-'}</TableCell>
                     <TableCell>
                       <div className="flex gap-1">
                         <Button size="sm" disabled={busy} onClick={() => confirmer(item)}
-                          className="bg-red-600 hover:bg-red-700 text-white text-xs h-7 px-2 gap-1">
+                          className="bg-red-500 hover:bg-red-400 text-white text-xs h-7 px-2 gap-1">
                           <CheckCircle size={11}/> Confirmer
                         </Button>
                         <Button size="sm" variant="outline" disabled={busy} onClick={() => setModalRefus(item)}
-                          className="text-xs h-7 px-2 gap-1 border-slate-300 hover:border-orange-400 hover:text-orange-600">
+                          className="text-xs h-7 px-2 gap-1 border-orange-500/30 bg-orange-500/10 hover:border-orange-400 hover:bg-orange-500/20 hover:text-orange-300 text-orange-400">
                           <XCircle size={11}/> Refuser
                         </Button>
                       </div>
@@ -153,27 +153,27 @@ const SuspiciousSims = () => {
 
       {modalRefus && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
-            <h2 className="text-lg font-bold text-slate-800 mb-1">Refuser l'alerte</h2>
-            <p className="text-sm text-slate-500 mb-4">MSISDN : <span className="font-mono font-bold">{modalRefus.numero_sim}</span></p>
+          <div className="bg-[#0f172a] border border-white/10 rounded-2xl shadow-2xl w-full max-w-md p-6">
+            <h2 className="text-lg font-bold text-white mb-1">Refuser l'alerte</h2>
+            <p className="text-sm text-slate-400 mb-4">MSISDN : <span className="font-mono font-bold text-white">{modalRefus.numero_sim}</span></p>
             <div className="mb-4">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-2">Motif</label>
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">Motif</label>
               <select value={motif} onChange={e => setMotif(e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                {MOTIFS.map(m => <option key={m}>{m}</option>)}
+                className="w-full bg-white/5 border border-white/20 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-yellow-500">
+                {MOTIFS.map(m => <option key={m} className="bg-slate-900">{m}</option>)}
               </select>
             </div>
             <div className="mb-6">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-2">Détails</label>
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">Détails</label>
               <textarea value={details} onChange={e => setDetails(e.target.value)} rows={3}
                 placeholder="Expliquez pourquoi c'est un faux positif..."
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"/>
+                className="w-full bg-white/5 border border-white/20 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-yellow-500 resize-none"/>
             </div>
             <div className="flex gap-3">
-              <Button onClick={refuser} disabled={busy} className="flex-1 bg-orange-500 hover:bg-orange-600 text-white">
+              <Button onClick={refuser} disabled={busy} className="flex-1 bg-orange-500 hover:bg-orange-400 text-white">
                 {busy ? 'Enregistrement...' : 'Confirmer le refus'}
               </Button>
-              <Button variant="outline" onClick={() => setModalRefus(null)} className="flex-1">Annuler</Button>
+              <Button variant="outline" onClick={() => setModalRefus(null)} className="flex-1 border-white/20 text-white hover:bg-white/10">Annuler</Button>
             </div>
           </div>
         </div>
