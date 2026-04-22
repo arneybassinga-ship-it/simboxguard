@@ -39,7 +39,7 @@ const ARPCEDashboard = () => {
   ];
 
   const CARDS = [
-    { label: 'MSISDN confirmées SimBox', value: stats.confirmees, icon: ShieldAlert, color: 'text-red-600', bg: 'bg-red-50' },
+    { label: 'SIMs frauduleuses', value: stats.confirmees, icon: ShieldAlert, color: 'text-red-600', bg: 'bg-red-50' },
     { label: 'Ordres émis', value: stats.ordres_total, icon: FileText, color: 'text-blue-600', bg: 'bg-blue-50' },
     { label: 'Blocages effectués', value: stats.ordres_bloques, icon: CheckCircle, color: 'text-green-600', bg: 'bg-green-50' },
     { label: 'En attente de blocage', value: stats.en_attente, icon: Clock, color: 'text-orange-600', bg: 'bg-orange-50' },
@@ -64,7 +64,7 @@ const ARPCEDashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">MSISDN confirmées par opérateur</CardTitle>
+            <CardTitle className="text-sm">SIMs frauduleuses par opérateur</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={160}>
@@ -73,7 +73,7 @@ const ARPCEDashboard = () => {
                 <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} />
                 <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} />
                 <Tooltip contentStyle={{ fontSize: '12px', borderRadius: '8px' }} />
-                <Bar dataKey="confirmees" name="SimBox confirmées" radius={[4,4,0,0]}>
+                <Bar dataKey="confirmees" name="SIMs frauduleuses" radius={[4,4,0,0]}>
                   <Cell fill="#FBBF24" />
                   <Cell fill="#EF4444" />
                 </Bar>

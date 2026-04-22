@@ -144,11 +144,11 @@ const Reports = () => {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="space-y-2">
                 <Label className="text-slate-300 text-xs font-bold uppercase tracking-wider">Date debut</Label>
-                <Input type="date" value={dateDebut} onChange={(e) => setDateDebut(e.target.value)} className="bg-white/5 border-white/20 text-white [color-scheme:dark]" />
+                <Input type="date" value={dateDebut} onChange={(e) => setDateDebut(e.target.value)} className="bg-white/5 border-white/20 text-white" style={{ colorScheme: 'dark' }} />
               </div>
               <div className="space-y-2">
                 <Label className="text-slate-300 text-xs font-bold uppercase tracking-wider">Date fin</Label>
-                <Input type="date" value={dateFin} onChange={(e) => setDateFin(e.target.value)} className="bg-white/5 border-white/20 text-white [color-scheme:dark]" />
+                <Input type="date" value={dateFin} onChange={(e) => setDateFin(e.target.value)} className="bg-white/5 border-white/20 text-white" style={{ colorScheme: 'dark' }} />
               </div>
               <div className="space-y-2">
                 <Label className="text-slate-300 text-xs font-bold uppercase tracking-wider">Operateur</Label>

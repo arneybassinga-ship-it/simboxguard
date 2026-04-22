@@ -139,7 +139,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
             <div className={cn("p-2 rounded-xl border shadow-lg", theme.accent)}>
               <ShieldAlert className={cn("w-5 h-5", theme.primary)} />
             </div>
-            <h1 className="text-lg font-bold tracking-tight">SimboxGuard</h1>
+            <h1 className="text-lg font-bold tracking-tight">SIMVigil</h1>
           </div>
           <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em]">Régulation ARPCE</p>
         </div>

@@ -30,7 +30,7 @@ const AnalysteDashboard = () => {
 
   const pieData = [
     { name: 'En attente', value: stats.en_attente, color: '#3B82F6' },
-    { name: 'Confirmées', value: stats.confirmees, color: '#EF4444' },
+    { name: 'Frauduleuses', value: stats.confirmees, color: '#EF4444' },
     { name: 'Refusées', value: stats.refusees, color: '#F97316' },
   ].filter(d => d.value > 0);
 
@@ -48,7 +48,7 @@ const AnalysteDashboard = () => {
   const CARDS = [
     { label: 'Total MSISDN analysées', value: stats.total, icon: ShieldAlert, color: 'text-blue-600', bg: 'bg-blue-50' },
     { label: 'En attente', value: stats.en_attente, icon: Clock, color: 'text-orange-600', bg: 'bg-orange-50' },
-    { label: 'SimBox confirmées', value: stats.confirmees, icon: CheckCircle, color: 'text-red-600', bg: 'bg-red-50' },
+    { label: 'SIMs frauduleuses', value: stats.confirmees, icon: CheckCircle, color: 'text-red-600', bg: 'bg-red-50' },
     { label: 'Faux positifs', value: stats.refusees, icon: XCircle, color: 'text-green-600', bg: 'bg-green-50' },
     { label: 'Alertes critiques', value: stats.critiques, icon: ShieldAlert, color: 'text-purple-600', bg: 'bg-purple-50' },
     { label: 'Score moyen', value: `${stats.score_moyen}%`, icon: TrendingUp, color: 'text-slate-600', bg: 'bg-slate-50' },

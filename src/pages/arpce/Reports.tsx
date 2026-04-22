@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -191,7 +191,7 @@ const ArpceReports = () => {
                       : 'non envoye'}
                   </p>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-                    MSISDN confirmées
+                    SIMs frauduleuses
                   </p>
                   <div className="flex flex-wrap gap-1">
                     {getRapportSims(r).map((s) => (

@@ -34,7 +34,7 @@ const History = () => {
         <div className="bg-red-50 rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-1">
             <CheckCircle size={14} className="text-red-600"/>
-            <p className="text-xs text-slate-500 font-medium">SimBox confirmées</p>
+            <p className="text-xs text-slate-500 font-medium">SIMs frauduleuses</p>
           </div>
           <p className="text-3xl font-bold text-red-600">{stats.confirmees}</p>
         </div>
@@ -59,7 +59,7 @@ const History = () => {
           <button key={f} onClick={() => setFiltre(f)}
             className={cn('px-3 py-1 rounded-full text-xs font-bold border transition-all',
               filtre===f ? 'bg-blue-600 text-white border-blue-600' : 'border-slate-300 text-slate-500')}>
-            {f === 'tous' ? 'TOUS' : f === 'confirmee' ? 'CONFIRMÉES' : 'REFUSÉES'}
+            {f === 'tous' ? 'TOUS' : f === 'confirmee' ? 'FRAUDULEUSES' : 'REFUSÉES'}
           </button>
         ))}
       </div>
@@ -94,7 +94,7 @@ const History = () => {
                       <span className={cn('flex items-center gap-1 text-xs font-bold',
                         item.statut==='confirmee' ? 'text-red-600' : 'text-orange-500')}>
                         {item.statut==='confirmee'
-                          ? <><CheckCircle size={12}/> SimBox confirmée</>
+                          ? <><CheckCircle size={12}/> SIM frauduleuse</>
                           : <><XCircle size={12}/> Faux positif</>}
                       </span>
                     </TableCell>

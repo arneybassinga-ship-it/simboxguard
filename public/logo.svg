@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1E3A8A"/>
+      <stop offset="100%" stop-color="#312E81"/>
+    </linearGradient>
+    <linearGradient id="shield" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#60A5FA"/>
+      <stop offset="100%" stop-color="#818CF8"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Fond arrondi -->
+  <rect width="64" height="64" rx="14" fill="url(#bg)"/>
+
+  <!-- Bouclier -->
+  <path d="M32 10 L50 17.5 L50 33 C50 43.5 42 51.5 32 55 C22 51.5 14 43.5 14 33 L14 17.5 Z"
+        fill="url(#shield)" opacity="0.2"/>
+  <path d="M32 10 L50 17.5 L50 33 C50 43.5 42 51.5 32 55 C22 51.5 14 43.5 14 33 L14 17.5 Z"
+        stroke="url(#shield)" stroke-width="1.5" fill="none"/>
+
+  <!-- Lettre S + V -->
+  <text x="32" y="39" font-family="Arial Black, Arial, sans-serif" font-size="17" font-weight="900"
+        fill="white" text-anchor="middle" letter-spacing="-0.5">SV</text>
+
+  <!-- Point lumineux en haut à droite -->
+  <circle cx="47" cy="17" r="4" fill="#3B82F6" opacity="0.8"/>
+  <circle cx="47" cy="17" r="2" fill="white"/>
+</svg>

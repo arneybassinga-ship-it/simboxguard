@@ -36,7 +36,7 @@ const AgentAnalyses = () => {
         </div>
         <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-center">
           <p className="text-2xl font-black text-red-400">{confirmees.length}</p>
-          <p className="text-xs text-slate-400 mt-1">SimBox confirmées</p>
+          <p className="text-xs text-slate-400 mt-1">SIMs frauduleuses</p>
         </div>
         <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4 text-center">
           <p className="text-2xl font-black text-green-400">

@@ -179,8 +179,8 @@ const Index = () => {
           {/* Right Side - Visual */}
           <div className="hidden md:flex flex-1 p-8">
             <div className="w-full h-full bg-gradient-to-br from-slate-900 to-[#020617] rounded-[40px] relative overflow-hidden flex items-center justify-center border border-white/5 shadow-inner">
-              {/* Animated Glow */}
-              <div className="absolute w-80 h-80 bg-blue-500/10 rounded-full blur-[100px] animate-pulse" />
+              {/* Glow */}
+              <div className="absolute w-80 h-80 bg-blue-500/10 rounded-full blur-[100px]" />
               
               <div className="relative z-10 flex flex-col items-center text-center p-12">
                 <div className="relative mb-10">

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
-  ScanSearch, Loader2, ShieldAlert, Users, BarChart3,
+  ScanSearch, Loader2, Users, BarChart3,
   CheckCircle2, AlertTriangle, Info, ChevronDown, ChevronUp,
 } from 'lucide-react';
 import { showSuccess, showError } from '../../utils/toast';
@@ -205,7 +205,8 @@ const SimboxDetection = () => {
                   type="date"
                   value={dateDeb}
                   onChange={e => { setDateDeb(e.target.value); setResult(null); }}
-                  className="bg-white/5 border-white/20 text-white [color-scheme:dark]"
+                  className="bg-white/5 border-white/20 text-white"
+                  style={{ colorScheme: 'dark' }}
                 />
               </div>
               <div className="space-y-2">
@@ -214,7 +215,8 @@ const SimboxDetection = () => {
                   type="date"
                   value={dateFin}
                   onChange={e => { setDateFin(e.target.value); setResult(null); }}
-                  className="bg-white/5 border-white/20 text-white [color-scheme:dark]"
+                  className="bg-white/5 border-white/20 text-white"
+                  style={{ colorScheme: 'dark' }}
                 />
               </div>
             </div>

@@ -128,7 +128,8 @@ const AgregationCDR = () => {
                   type="date"
                   value={dateDeb}
                   onChange={e => { setDateDeb(e.target.value); resetPreview(); }}
-                  className="bg-white/5 border-white/20 text-white [color-scheme:dark]"
+                  className="bg-white/5 border-white/20 text-white"
+                  style={{ colorScheme: 'dark' }}
                 />
               </div>
               <div className="space-y-2">
@@ -139,7 +140,8 @@ const AgregationCDR = () => {
                   type="date"
                   value={dateFin}
                   onChange={e => { setDateFin(e.target.value); resetPreview(); }}
-                  className="bg-white/5 border-white/20 text-white [color-scheme:dark]"
+                  className="bg-white/5 border-white/20 text-white"
+                  style={{ colorScheme: 'dark' }}
                 />
               </div>
             </div>

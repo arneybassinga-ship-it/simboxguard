@@ -46,7 +46,7 @@ const SuspiciousSims = () => {
       });
       if (!res.ok) { const d = await res.json(); throw new Error(d.error); }
       setAnalyses(p => p.map(a => a.id === item.id ? { ...a, statut: 'confirmee' } : a));
-      showSuccess(`MSISDN ${item.numero_sim} confirmée SimBox ✓`);
+      showSuccess(`MSISDN ${item.numero_sim} confirmée comme SIM frauduleuse ✓`);
     } catch (e) { showError(e instanceof Error ? e.message : 'Erreur confirmation'); }
     setBusy(false);
   };
