@@ -52,17 +52,19 @@ export interface SimAnalysis {
   motif_refus?: string;
   details_refus?: string;
   date_analyse: string;
+  date_decision?: string;
   cdr_id: string;
 }
 
 export interface BlockingOrder {
   id: string;
-  sims: string[];
+  liste_sim_json: string[];
   operateur: Operator;
   date_emission: string;
   date_limite: string;
   statut: 'en_attente' | 'bloque' | 'depasse';
   delai_heures: number;
+  delai_restant_heures?: number;
 }
 
 export interface SimboxDetection {
@@ -85,11 +87,11 @@ export interface SimboxDetection {
 
 export interface Sanction {
   id: string;
-  ordre_id: string;
+  ordre_blocage_id: string;
   date_sanction: string;
   type: 'avertissement' | 'mise_en_demeure';
   operateur: Operator;
-  details: string;
+  log_details: string;
 }
 
 export type ReportStatus = 'brouillon' | 'envoye' | 'consulte' | 'traite';

@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "reset:demo": "node reset-demo-data.js"
+    "reset:demo": "echo 'Demo data removed'"
   },
   "dependencies": {
     "cors": "^2.8.6",

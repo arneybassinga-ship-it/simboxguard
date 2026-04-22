@@ -7,12 +7,8 @@ import { showSuccess, showError } from '../../utils/toast';
 import { BlockingOrder, Sanction } from '../../types';
 import { apiUrl } from '../../lib/api';
 
-type BlockingOrderWithList = BlockingOrder & {
-  liste_sim_json?: string[];
-};
-
 const ArpceSanctions = () => {
-  const [ordres, setOrdres] = useState<BlockingOrderWithList[]>([]);
+  const [ordres, setOrdres] = useState<BlockingOrder[]>([]);
   const [sanctions, setSanctions] = useState<Sanction[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
@@ -43,7 +39,7 @@ const ArpceSanctions = () => {
     setBusy('');
   };
 
-  const depasses = ordres.filter(o => o.statut === 'depasse' || (o.statut === 'en_attente' && o.delai_restant_heures === 0));
+  const depasses = ordres.filter(o => o.statut === 'depasse' || (o.statut === 'en_attente' && (o.delai_restant_heures ?? 1) === 0));
 
   return (
     <DashboardLayout title="Sanctions — ARPCE">

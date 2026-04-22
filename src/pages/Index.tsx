@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShieldAlert, Mail, Lock, KeyRound, User, ArrowRight } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { ShieldAlert, Mail, Lock, KeyRound, ArrowRight } from 'lucide-react';
 import { MOCK_USERS } from '../store/mockData';
 import { showSuccess, showError } from '../utils/toast';
-import { cn } from '@/lib/utils';
 
 const Index = () => {
   const navigate = useNavigate();
