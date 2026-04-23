@@ -51,10 +51,15 @@ const ensureDatabaseSchema = async () => {
         date_detection DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    await conn.query(`
-      CREATE INDEX IF NOT EXISTS idx_simbox_statut
-      ON simbox_detectees(statut)
-    `);
+    const [indexes] = await conn.query(`
+  SELECT INDEX_NAME FROM INFORMATION_SCHEMA.STATISTICS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'simbox_detectees'
+    AND INDEX_NAME = 'idx_simbox_statut'
+`);
+if (indexes.length === 0) {
+  await conn.query(`CREATE INDEX idx_simbox_statut ON simbox_detectees(statut)`);
+}
   } finally {
     conn.release();
   }
@@ -1479,7 +1484,22 @@ app.patch('/api/simbox/:id', async (req, res) => {
 
 const port = process.env.PORT || 4000;
 
-ensureDatabaseSchema()
+const waitForDb = async (retries = 10, delay = 5000) => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const conn = await pool.getConnection();
+      conn.release();
+      return; // connexion OK
+    } catch (err) {
+      console.log(`[DB] MySQL pas encore prêt, tentative ${i + 1}/${retries}...`);
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+  throw new Error('Impossible de se connecter à MySQL après plusieurs tentatives');
+};
+
+waitForDb()
+  .then(() => ensureDatabaseSchema())
   .then(() => {
     app.listen(port, () => {
       console.log(`Serveur démarré sur http://localhost:${port}`);
