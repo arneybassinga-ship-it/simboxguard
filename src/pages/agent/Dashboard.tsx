@@ -112,7 +112,7 @@ const AgentDashboard = () => {
   const trafficData = buildTrafficData(analyses);
   const picsData    = buildPicsData(fichiers);
 
-  const accentClass = isMTN ? 'text-yellow-400' : 'text-white';
+  const accentClass = isMTN ? 'text-yellow-400' : 'text-red-400';
 
   const CARDS = [
     {

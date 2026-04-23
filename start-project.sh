@@ -16,10 +16,10 @@ else
   echo "Docker non trouvé. Vérifie que MySQL tourne déjà sur le port 3310."
 fi
 
-echo "==> Démarrage du backend sur http://localhost:4001"
+echo "==> Démarrage du backend sur http://localhost:4000"
 (
   cd "$ROOT_DIR/backend"
-  PORT=4001 MYSQL_HOST=127.0.0.1 MYSQL_PORT=3310 npm start
+  npm start
 ) &
 BACKEND_PID=$!
 

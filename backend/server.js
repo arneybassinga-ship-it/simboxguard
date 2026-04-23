@@ -948,6 +948,11 @@ app.get('/api/rapports', async (req, res) => {
 app.get('/api/ordres', async (_req, res) => {
   const conn = await pool.getConnection();
   try {
+    // Marquer automatiquement en "depasse" les ordres en_attente dont le délai est écoulé
+    await conn.query(
+      `UPDATE ordres_blocage SET statut = 'depasse'
+       WHERE statut = 'en_attente' AND date_limite < NOW()`
+    );
     const [rows] = await conn.query(
       'SELECT * FROM ordres_blocage ORDER BY date_emission DESC'
     );

@@ -97,8 +97,8 @@ const ArpceReports = () => {
             className={cn(
               'px-4 py-1.5 rounded-full text-xs font-bold border transition-all',
               filtreOp === op
-                ? 'bg-slate-800 text-white border-slate-800'
-                : 'border-slate-300 text-slate-500 hover:border-slate-500'
+                ? 'bg-white/10 text-white border-white/30'
+                : 'border-white/15 text-slate-400 hover:text-white hover:border-white/30'
             )}>
             {op.toUpperCase()}
           </button>
@@ -119,29 +119,29 @@ const ArpceReports = () => {
         {filtered.map(r => (
           <Card key={r.id} className={cn(
             'border transition-all',
-            !r.statut_lu ? 'border-blue-300 bg-blue-50/30' : 'border-slate-200'
+            !r.statut_lu ? 'border-blue-500/40 bg-blue-500/10' : 'bg-white/5 border-white/10'
           )}>
             <CardContent className="p-5">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <div className={cn(
                     'w-11 h-11 rounded-xl flex items-center justify-center',
-                    r.operateur === 'MTN' ? 'bg-yellow-100' : 'bg-red-100'
+                    r.operateur === 'MTN' ? 'bg-yellow-500/20' : 'bg-red-500/20'
                   )}>
                     <FileText size={20} className={
-                      r.operateur === 'MTN' ? 'text-yellow-700' : 'text-red-600'
+                      r.operateur === 'MTN' ? 'text-yellow-400' : 'text-red-400'
                     } />
                   </div>
                   <div>
-                    <p className="font-semibold text-sm text-slate-800">
+                    <p className="font-semibold text-sm text-white">
                       {r.contenu_json?.titre ?? 'Rapport simbox'}
                     </p>
                     <div className="flex items-center gap-2 mt-1">
                       <span className={cn(
-                        'text-[10px] font-bold px-2 py-0.5 rounded',
+                        'text-[10px] font-bold px-2 py-0.5 rounded border',
                         r.operateur === 'MTN'
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-red-100 text-red-700'
+                          ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
+                          : 'bg-red-500/10 text-red-400 border-red-500/20'
                       )}>
                         {r.operateur}
                       </span>
@@ -149,17 +149,17 @@ const ArpceReports = () => {
                         {new Date(r.date_envoi).toLocaleString('fr-FR')}
                       </span>
                       {!r.statut_lu && (
-                        <span className="text-[10px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+                        <span className="text-[10px] font-bold bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded border border-blue-500/30">
                           NOUVEAU
                         </span>
                       )}
                     </div>
                     <div className="flex flex-wrap gap-2 mt-2 text-[10px] text-slate-500">
-                      <span className="px-2 py-0.5 rounded bg-slate-100">
-                        Ref: <span className="font-bold text-slate-700">{r.reference_unique || r.contenu_json?.reference || 'N/A'}</span>
+                      <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10">
+                        Ref: <span className="font-bold text-slate-300">{r.reference_unique || r.contenu_json?.reference || 'N/A'}</span>
                       </span>
-                      <span className="px-2 py-0.5 rounded bg-slate-100">
-                        Statut: <span className="font-bold text-slate-700">{(r.statut_rapport || 'envoye').toUpperCase()}</span>
+                      <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10">
+                        Statut: <span className="font-bold text-slate-300">{(r.statut_rapport || 'envoye').toUpperCase()}</span>
                       </span>
                     </div>
                   </div>
@@ -167,14 +167,14 @@ const ArpceReports = () => {
 
                 <div className="flex items-center gap-4 flex-shrink-0">
                   <div className="text-right">
-                    <p className="text-2xl font-bold text-red-600">
+                    <p className="text-2xl font-bold text-red-400">
                       {r.contenu_json?.total ?? 0}
                     </p>
                     <p className="text-[10px] text-slate-400">MSISDN à bloquer</p>
                   </div>
                   <Button size="sm"
                     onClick={() => { setModalBlocage(r); setDelaiChoisi(48); }}
-                    className="bg-slate-800 hover:bg-slate-900 text-white text-xs gap-1.5">
+                    className="bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 border border-orange-500/30 text-xs gap-1.5">
                     <ShieldAlert size={13} />
                     Émettre ordre
                   </Button>
@@ -182,13 +182,13 @@ const ArpceReports = () => {
               </div>
 
               {getRapportSims(r).length > 0 && (
-                <div className="mt-4 pt-3 border-t border-slate-100">
+                <div className="mt-4 pt-3 border-t border-white/10">
                   <p className="text-[10px] text-slate-500 mb-2">
-                    Signe par {r.analyste_nom || r.contenu_json?.signature?.analyste_nom || 'Analyste fraude'}
+                    Signé par {r.analyste_nom || r.contenu_json?.signature?.analyste_nom || 'Analyste fraude'}
                     {' · '}
                     {r.date_signature || r.contenu_json?.signature?.date_signature
                       ? new Date(r.date_signature || r.contenu_json.signature?.date_signature || '').toLocaleString('fr-FR')
-                      : 'non envoye'}
+                      : 'non envoyé'}
                   </p>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
                     SIMs frauduleuses
@@ -196,7 +196,7 @@ const ArpceReports = () => {
                   <div className="flex flex-wrap gap-1">
                     {getRapportSims(r).map((s) => (
                       <span key={s.id}
-                        className="font-mono text-[10px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded">
+                        className="font-mono text-[10px] bg-white/5 border border-white/10 text-slate-300 px-2 py-0.5 rounded">
                         {s.numero_sim}
                       </span>
                     ))}
@@ -211,27 +211,27 @@ const ArpceReports = () => {
       {/* Modal ordre de blocage */}
       {modalBlocage && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+          <div className="bg-[#0f172a] border border-white/10 rounded-2xl shadow-2xl w-full max-w-md p-6">
             <div className="flex items-center gap-3 mb-5">
-              <div className="w-11 h-11 rounded-full bg-orange-100 flex items-center justify-center">
-                <ShieldAlert size={22} className="text-orange-600" />
+              <div className="w-11 h-11 rounded-full bg-orange-500/20 border border-orange-500/30 flex items-center justify-center">
+                <ShieldAlert size={22} className="text-orange-400" />
               </div>
               <div>
-                <h2 className="text-base font-bold text-slate-800">Ordre de blocage</h2>
+                <h2 className="text-base font-bold text-white">Ordre de blocage</h2>
                 <p className="text-xs text-slate-400">
                   {modalBlocage.operateur} — {modalBlocage.contenu_json?.total ?? 0} MSISDN
                 </p>
               </div>
             </div>
 
-            <div className="bg-slate-50 rounded-xl p-3 mb-5 max-h-32 overflow-y-auto">
+            <div className="bg-white/5 border border-white/10 rounded-xl p-3 mb-5 max-h-32 overflow-y-auto">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
                 MSISDN concernées
               </p>
               <div className="flex flex-wrap gap-1">
                 {getRapportSims(modalBlocage).map((s) => (
                   <span key={s.id}
-                    className="font-mono text-[10px] bg-white border border-slate-200 text-slate-700 px-2 py-0.5 rounded">
+                    className="font-mono text-[10px] bg-white/5 border border-white/10 text-slate-300 px-2 py-0.5 rounded">
                     {s.numero_sim}
                   </span>
                 ))}
@@ -239,7 +239,7 @@ const ArpceReports = () => {
             </div>
 
             <div className="mb-6">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-3">
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-3">
                 Délai accordé à l'opérateur
               </label>
               <div className="flex gap-3">
@@ -248,14 +248,14 @@ const ArpceReports = () => {
                     className={cn(
                       'flex-1 py-3 rounded-xl border-2 text-sm font-bold transition-all',
                       delaiChoisi === h
-                        ? 'border-orange-500 bg-orange-50 text-orange-700'
-                        : 'border-slate-200 text-slate-500 hover:border-slate-300'
+                        ? 'border-orange-500 bg-orange-500/20 text-orange-400'
+                        : 'border-white/15 text-slate-400 hover:border-white/30 hover:text-white'
                     )}>
                     {h}h
                   </button>
                 ))}
               </div>
-              <p className="text-[10px] text-slate-400 mt-2">
+              <p className="text-[10px] text-slate-500 mt-2">
                 Sans blocage dans ce délai → sanction automatique déclenchée.
               </p>
             </div>
@@ -266,7 +266,7 @@ const ArpceReports = () => {
                 {submitting ? 'Émission...' : `Émettre (${delaiChoisi}h)`}
               </Button>
               <Button variant="outline" onClick={() => setModalBlocage(null)}
-                disabled={submitting} className="flex-1">
+                disabled={submitting} className="flex-1 border-white/20 text-white hover:bg-white/10">
                 Annuler
               </Button>
             </div>

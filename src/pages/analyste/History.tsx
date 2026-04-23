@@ -18,7 +18,7 @@ const History = () => {
   }, []);
 
   const filtered = analyses.filter(a => {
-    if (filtre === 'tous') return a.statut !== 'en_attente';
+    if (filtre === 'tous') return true;
     return a.statut === filtre;
   });
 

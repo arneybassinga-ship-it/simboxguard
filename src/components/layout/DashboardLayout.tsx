@@ -22,7 +22,21 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
     navigate('/');
   };
 
-  const theme = {
+  const isAirtel = user.role === 'AGENT_AIRTEL';
+
+  const theme = isAirtel ? {
+    sidebarBg: "bg-[#0f172a]/40",
+    sidebarBorder: "border-red-500/20",
+    primary: "text-red-400",
+    accent: "bg-red-400/20 border-red-400/30",
+    glow1: "bg-red-600/20",
+    glow2: "bg-red-900/20",
+    navActive: "bg-red-400/20 text-red-400 border-red-400/30 shadow-[0_0_20px_rgba(239,68,68,0.2)]",
+    badge: "bg-red-500/10 text-red-300 border-red-500/20",
+    headerBorder: "border-red-500/20",
+    iconColor: "text-red-400",
+    pulse: "bg-red-400",
+  } : {
     sidebarBg: "bg-[#0f172a]/40",
     sidebarBorder: "border-blue-500/20",
     primary: "text-yellow-400",
@@ -33,6 +47,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
     badge: "bg-blue-500/10 text-blue-300 border-blue-500/20",
     headerBorder: "border-blue-500/20",
     iconColor: "text-blue-400",
+    pulse: "bg-yellow-400",
   };
 
   const menuItems = {
@@ -191,7 +206,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
             <div className="flex items-center gap-2 mt-1">
               <div className={cn(
                 "w-2 h-2 rounded-full animate-pulse",
-                "bg-yellow-400"
+                theme.pulse
               )} />
               <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em]">
                 {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
@@ -212,7 +227,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
               <Bell size={22} />
               <span className={cn(
                 "absolute top-3 right-3 w-3 h-3 rounded-full border-2 border-[#020617]",
-                "bg-yellow-400"
+                theme.pulse
               )} />
             </button>
           </div>
