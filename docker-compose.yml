@@ -9,7 +9,7 @@ services:
       MYSQL_DATABASE: soutenance
 
     ports:
-      - "3310:3306"
+      - "3311:3306"
 
     volumes:
       - mysql-data:/var/lib/mysql

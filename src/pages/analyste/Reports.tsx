@@ -2,14 +2,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { FileText, Loader2, Send, Download, Clock3, CheckCircle2, Eye } from 'lucide-react';
 import { showError, showSuccess } from '../../utils/toast';
 import { AnalystReport, ReportDestination, ReportStatus, User } from '../../types';
 import { generateRapportAnalyseCDR, generateRapportSimbox } from '../../lib/generatePDF';
 import { apiUrl } from '../../lib/api';
+import { DateRangePicker } from '../../components/ui/DateRangePicker';
 
 type ReportTab = 'brouillons' | 'arpce' | 'operateurs';
 
@@ -142,13 +141,14 @@ const Reports = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="space-y-2">
-                <Label className="text-slate-300 text-xs font-bold uppercase tracking-wider">Date debut</Label>
-                <Input type="date" value={dateDebut} onChange={(e) => setDateDebut(e.target.value)} className="bg-white/5 border-white/20 text-white" style={{ colorScheme: 'dark' }} />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-slate-300 text-xs font-bold uppercase tracking-wider">Date fin</Label>
-                <Input type="date" value={dateFin} onChange={(e) => setDateFin(e.target.value)} className="bg-white/5 border-white/20 text-white" style={{ colorScheme: 'dark' }} />
+              <div className="md:col-span-2 space-y-2">
+                <DateRangePicker
+                  dateDebut={dateDebut}
+                  dateFin={dateFin}
+                  onChangeDebut={setDateDebut}
+                  onChangeFin={setDateFin}
+                  accentColor="blue"
+                />
               </div>
               <div className="space-y-2">
                 <Label className="text-slate-300 text-xs font-bold uppercase tracking-wider">Operateur</Label>

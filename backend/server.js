@@ -13,9 +13,20 @@ const app = express();
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:8080',
   methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-User-Id', 'X-User-Nom', 'X-User-Role'],
 }));
 app.use(express.json());
+
+// Middleware : extrait l'identité utilisateur depuis les headers
+app.use((req, _res, next) => {
+  req.auditUser = {
+    user_id:   req.headers['x-user-id']   || 'inconnu',
+    user_nom:  req.headers['x-user-nom']  || 'inconnu',
+    user_role: req.headers['x-user-role'] || 'inconnu',
+    ip: req.ip || req.headers['x-forwarded-for'] || null,
+  };
+  next();
+});
 
 /* ================= DB ================= */
 
@@ -29,9 +40,38 @@ const pool = mysql.createPool({
   connectionLimit: 10,
 });
 
+/* ================= AUDIT ================= */
+
+const logAudit = async (conn, { user_id, user_nom, user_role, action, entite_type = null, entite_id = null, operateur = null, details = null, ip = null }) => {
+  try {
+    await conn.query(
+      `INSERT INTO audit_logs (id, user_id, user_nom, user_role, action, entite_type, entite_id, operateur, details_json, ip_address, date_action)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [uuidv4(), user_id || 'inconnu', user_nom || 'inconnu', user_role || 'inconnu', action, entite_type, entite_id, operateur, details ? JSON.stringify(details) : null, ip]
+    );
+  } catch (err) {
+    console.error('[AUDIT LOG ERROR]', err.message);
+  }
+};
+
 const ensureDatabaseSchema = async () => {
   const conn = await pool.getConnection();
   try {
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS audit_logs (
+        id VARCHAR(36) PRIMARY KEY,
+        user_id   VARCHAR(50)  NOT NULL DEFAULT 'inconnu',
+        user_nom  VARCHAR(120) NOT NULL DEFAULT 'inconnu',
+        user_role VARCHAR(50)  NOT NULL DEFAULT 'inconnu',
+        action    VARCHAR(100) NOT NULL,
+        entite_type VARCHAR(50)  NULL,
+        entite_id   VARCHAR(36)  NULL,
+        operateur   VARCHAR(20)  NULL,
+        details_json TEXT        NULL,
+        ip_address  VARCHAR(45)  NULL,
+        date_action DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
     await conn.query(`
       CREATE TABLE IF NOT EXISTS simbox_detectees (
         id VARCHAR(36) PRIMARY KEY,
@@ -589,6 +629,12 @@ app.post('/api/cdr/upload', upload.single('file'), async (req, res) => {
     );
 
     await conn.commit();
+    await logAudit(conn, {
+      ...req.auditUser,
+      action: 'IMPORT_CDR',
+      entite_type: 'cdr_file', entite_id: cdrId, operateur: operateur.toUpperCase(),
+      details: { fichier: file.originalname, nb_lignes: cdrLineEntities.length, nb_rejetes: lignesRejetees },
+    });
     res.status(201).json({
       cdr_id: cdrId,
       nb_lignes: cdrLineEntities.length,
@@ -630,15 +676,16 @@ app.patch('/api/cdr/analyses/:id', async (req, res) => {
       `UPDATE sim_analyses
        SET statut=?, motif_refus=?, details_refus=?, justificatif_confirmation=?, date_decision=NOW()
        WHERE id=?`,
-      [
-        statut,
-        motif_refus || null,
-        details_refus || null,
-        justificatif_confirmation || null,
-        id,
-      ]
+      [statut, motif_refus || null, details_refus || null, justificatif_confirmation || null, id]
     );
-
+    const [[sim]] = await conn.query('SELECT numero_sim, operateur FROM sim_analyses WHERE id=?', [id]);
+    await logAudit(conn, {
+      ...req.auditUser,
+      action: statut === 'confirmee' ? 'CONFIRMER_SIM' : 'REFUSER_SIM',
+      entite_type: 'sim_analyse', entite_id: id,
+      operateur: sim?.operateur || null,
+      details: { numero_sim: sim?.numero_sim, motif_refus: motif_refus || null },
+    });
     res.json({ success: true });
 
   } catch (err) {
@@ -691,6 +738,12 @@ app.post('/api/rapports/envoyer-arpce', async (req, res) => {
       [rapportId, 'simbox', 'analyste_fraude', 'arpce', operateur, JSON.stringify(contenu), reference, 'envoye', analyste_nom, signatureDate, date_debut, date_fin]
     );
 
+    await logAudit(conn, {
+      ...req.auditUser,
+      action: 'ENVOYER_RAPPORT_ARPCE',
+      entite_type: 'rapport', entite_id: rapportId, operateur,
+      details: { reference, nb_sims: sims.length },
+    });
     res.json({ success: true, rapport_id: rapportId, reference_unique: reference });
 
   } catch (err) {
@@ -733,6 +786,12 @@ app.post('/api/rapports/envoyer-agent', async (req, res) => {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [rapportId, 'cdr', 'analyste_fraude', `agent_${operateur.toLowerCase()}`, operateur, JSON.stringify(contenu), reference, 'envoye', analyste_nom, signatureDate, date_debut, date_fin]
     );
+    await logAudit(conn, {
+      ...req.auditUser,
+      action: 'ENVOYER_RAPPORT_AGENT',
+      entite_type: 'rapport', entite_id: rapportId, operateur,
+      details: { reference, nb_sims: sims.length },
+    });
     res.json({ success: true, rapport_id: rapportId, operateur, reference_unique: reference });
   } catch (err) {
     console.error('[RAPPORTS AGENT ERROR]', err);
@@ -807,6 +866,12 @@ app.post('/api/analyste/rapports/generer', async (req, res) => {
     );
 
     const [[rapport]] = await conn.query('SELECT * FROM rapports WHERE id = ?', [rapportId]);
+    await logAudit(conn, {
+      ...req.auditUser,
+      action: 'GENERER_RAPPORT',
+      entite_type: 'rapport', entite_id: rapportId, operateur,
+      details: { reference, destinataire, nb_sims: rows.length, date_debut, date_fin },
+    });
     res.status(201).json(normalizeReportRow(rapport));
   } catch (err) {
     console.error('[ANALYSTE RAPPORT GENERER ERROR]', err);
@@ -847,6 +912,13 @@ app.post('/api/rapports/:id/envoyer', async (req, res) => {
     );
 
     const [[updated]] = await conn.query('SELECT * FROM rapports WHERE id = ?', [id]);
+    await logAudit(conn, {
+      ...req.auditUser,
+      action: 'ENVOYER_RAPPORT',
+      entite_type: 'rapport', entite_id: id,
+      operateur: rapport.operateur,
+      details: { reference: rapport.reference_unique, destinataire: rapport.destinataire_role },
+    });
     res.json(normalizeReportRow(updated));
   } catch (err) {
     console.error('[RAPPORT ENVOI ERROR]', err);
@@ -891,6 +963,60 @@ app.get('/api/cdr/files', async (_req, res) => {
     res.json(rows);
   } catch (err) {
     console.error('[CDR FILES ERROR]', err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  } finally {
+    conn.release();
+  }
+});
+
+app.get('/api/cdr/sim/:msisdn/historique', async (req, res) => {
+  const { msisdn } = req.params;
+  const conn = await pool.getConnection();
+  try {
+    const [lignes] = await conn.query(
+      `SELECT cl.*, cf.nom_fichier, cf.date_import
+       FROM cdr_lines cl
+       JOIN cdr_files cf ON cl.cdr_id = cf.id
+       WHERE cl.numero_sim = ?
+       ORDER BY cl.date_heure DESC`,
+      [msisdn]
+    );
+
+    const total = lignes.length;
+    const totalDuree = lignes.reduce((s, l) => s + (l.duree_secondes || 0), 0);
+    const aboutis = lignes.filter(l => l.statut_appel === 'abouti').length;
+    const internationaux = lignes.filter(l => l.origine === 'international').length;
+    const numerosAppeles = new Set(lignes.map(l => l.numero_appele)).size;
+    const dureeMax = Math.max(...lignes.map(l => l.duree_secondes || 0), 0);
+    const dureeMoy = total > 0 ? Math.round(totalDuree / total) : 0;
+
+    // appels par heure (sur toute la période)
+    let appelsParHeure = 0;
+    if (total > 1) {
+      const dates = lignes.map(l => new Date(l.date_heure).getTime());
+      const dureesPeriode = (Math.max(...dates) - Math.min(...dates)) / 3600000;
+      appelsParHeure = dureesPeriode > 0 ? Math.round(total / dureesPeriode) : total;
+    }
+
+    res.json({
+      stats: {
+        total,
+        totalDuree,
+        dureeMoy,
+        dureeMax,
+        aboutis,
+        echoues: total - aboutis,
+        tauxAboutissement: total > 0 ? Math.round((aboutis / total) * 100) : 0,
+        internationaux,
+        nationaux: total - internationaux,
+        tauxInternational: total > 0 ? Math.round((internationaux / total) * 100) : 0,
+        numerosAppeles,
+        appelsParHeure,
+      },
+      lignes,
+    });
+  } catch (err) {
+    console.error('[SIM HISTORIQUE ERROR]', err);
     res.status(500).json({ error: 'Erreur serveur' });
   } finally {
     conn.release();
@@ -999,10 +1125,14 @@ app.get('/api/sanctions', async (_req, res) => {
 app.patch('/api/ordres/:id/bloquer', async (req, res) => {
   const conn = await pool.getConnection();
   try {
-    await conn.query(
-      "UPDATE ordres_blocage SET statut = 'bloque' WHERE id = ?",
-      [req.params.id]
-    );
+    await conn.query("UPDATE ordres_blocage SET statut = 'bloque' WHERE id = ?", [req.params.id]);
+    const [[ordre]] = await conn.query('SELECT operateur FROM ordres_blocage WHERE id=?', [req.params.id]);
+    await logAudit(conn, {
+      ...req.auditUser,
+      action: 'CONFIRMER_BLOCAGE',
+      entite_type: 'ordre_blocage', entite_id: req.params.id,
+      operateur: ordre?.operateur || null,
+    });
     res.json({ success: true });
   } catch (err) {
     console.error('[ORDRES BLOQUER ERROR]', err);
@@ -1028,6 +1158,12 @@ app.post('/api/ordres/bloquer', async (req, res) => {
         [rapport_id]
       );
     }
+    await logAudit(conn, {
+      ...req.auditUser,
+      action: 'EMETTRE_BLOCAGE',
+      entite_type: 'ordre_blocage', entite_id: ordreId, operateur,
+      details: { nb_sims: Array.isArray(liste_sim) ? liste_sim.length : 0, delai_heures, date_limite: dateLimite },
+    });
     res.json({ success: true, ordre_id: ordreId, date_limite: dateLimite });
   } catch (err) {
     console.error('[ORDRES CREER ERROR]', err);
@@ -1059,6 +1195,12 @@ app.post('/api/sanctions/avertir', async (req, res) => {
       [sanctionId, ordre_id, operateur, emailCible, `Avertissement envoyé le ${new Date().toISOString()} — SIM non bloquée dans le délai`]
     );
     console.log(`[SANCTION] Email → ${emailCible}`);
+    await logAudit(conn, {
+      ...req.auditUser,
+      action: 'EMETTRE_SANCTION',
+      entite_type: 'sanction', entite_id: sanctionId, operateur,
+      details: { ordre_id, email_envoye: emailCible, type: 'avertissement' },
+    });
     res.json({ success: true, sanction_id: sanctionId, email_envoye: emailCible });
   } catch (err) {
     console.error('[SANCTIONS AVERTIR ERROR]', err);
@@ -1215,7 +1357,13 @@ app.post('/api/cdr/agreger', async (req, res) => {
     );
 
     await conn.commit();
-
+    await logAudit(conn, {
+      ...req.auditUser,
+      action: 'AGREGER_CDR',
+      entite_type: 'cdr_file', entite_id: cdrVirtuelId, operateur,
+      details: { date_debut, date_fin, nb_lignes: lines.length, nb_sims: analyses.length,
+        nb_critiques: analyses.filter(a => a.niveau_alerte === 'critique').length },
+    });
     res.status(201).json({
       nb_sim_analysees: analyses.length,
       nb_lignes_traitees: lines.length,
@@ -1406,7 +1554,14 @@ app.post('/api/cdr/detecter-simbox', async (req, res) => {
     }
 
     await conn.commit();
-
+    await logAudit(conn, {
+      ...req.auditUser,
+      action: 'DETECTER_SIMBOX',
+      entite_type: 'simbox', entite_id: null, operateur,
+      details: { date_debut, date_fin, nb_groupes: groupes.length,
+        nb_sims: groupes.reduce((a, g) => a + g.nb_sims, 0),
+        nb_confirmes: groupes.filter(g => g.niveau === 'confirme').length },
+    });
     res.status(201).json({
       nb_groupes: groupes.length,
       nb_sims_impliquees: groupes.reduce((acc, g) => acc + g.nb_sims, 0),
@@ -1467,13 +1622,57 @@ app.patch('/api/simbox/:id', async (req, res) => {
 
   const conn = await pool.getConnection();
   try {
-    await conn.query(
-      'UPDATE simbox_detectees SET statut = ?, motif_rejet = ? WHERE id = ?',
-      [statut, motif_rejet || null, id]
-    );
+    await conn.query('UPDATE simbox_detectees SET statut = ?, motif_rejet = ? WHERE id = ?', [statut, motif_rejet || null, id]);
+    const [[sb]] = await conn.query('SELECT operateur, nb_sims FROM simbox_detectees WHERE id=?', [id]);
+    await logAudit(conn, {
+      ...req.auditUser,
+      action: statut === 'validee' ? 'VALIDER_SIMBOX' : 'REJETER_SIMBOX',
+      entite_type: 'simbox', entite_id: id,
+      operateur: sb?.operateur || null,
+      details: { nb_sims: sb?.nb_sims, motif_rejet: motif_rejet || null },
+    });
     res.json({ success: true });
   } catch (err) {
     console.error('[SIMBOX PATCH ERROR]', err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  } finally {
+    conn.release();
+  }
+});
+
+/* ================= JOURNAL D'AUDIT ================= */
+
+app.get('/api/audit', async (req, res) => {
+  const { action, user_role, operateur, date_debut, date_fin, limit = 100, offset = 0 } = req.query;
+  const conn = await pool.getConnection();
+  try {
+    let query = 'SELECT * FROM audit_logs WHERE 1=1';
+    const params = [];
+
+    if (action)     { query += ' AND action = ?';     params.push(action); }
+    if (user_role)  { query += ' AND user_role = ?';  params.push(user_role); }
+    if (operateur)  { query += ' AND operateur = ?';  params.push(operateur); }
+    if (date_debut) { query += ' AND date_action >= ?'; params.push(date_debut); }
+    if (date_fin)   { query += ' AND date_action <= DATE_ADD(?, INTERVAL 1 DAY)'; params.push(date_fin); }
+
+    const countQuery = query.replace('SELECT *', 'SELECT COUNT(*) AS total');
+    const [[{ total }]] = await conn.query(countQuery, params);
+
+    query += ' ORDER BY date_action DESC LIMIT ? OFFSET ?';
+    params.push(parseInt(limit, 10), parseInt(offset, 10));
+
+    const [rows] = await conn.query(query, params);
+    res.json({
+      total,
+      logs: rows.map(r => ({
+        ...r,
+        details_json: r.details_json
+          ? (typeof r.details_json === 'string' ? JSON.parse(r.details_json) : r.details_json)
+          : null,
+      })),
+    });
+  } catch (err) {
+    console.error('[AUDIT GET ERROR]', err);
     res.status(500).json({ error: 'Erreur serveur' });
   } finally {
     conn.release();

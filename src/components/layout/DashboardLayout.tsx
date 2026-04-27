@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { User } from '../../types';
 import {
   LayoutDashboard, FileUp, ShieldAlert, FileText,
-  LogOut, Bell, User as UserIcon, Activity, Ban, ChevronRight, Database, ScanSearch
+  LogOut, Bell, User as UserIcon, Activity, Ban, ChevronRight, Database, ScanSearch, ClipboardList
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -79,6 +79,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
       { icon: FileText, label: 'Rapports Opérateurs', path: '/arpce/reports' },
       { icon: Ban, label: 'Suivi Blocages', path: '/arpce/blocking' },
       { icon: Bell, label: 'Sanctions', path: '/arpce/sanctions' },
+      { icon: ClipboardList, label: "Journal d'audit", path: '/arpce/audit' },
     ],
   };
 

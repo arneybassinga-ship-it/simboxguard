@@ -2,8 +2,6 @@ import { useState } from 'react';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   Database, BarChart3, PlayCircle, CheckCircle2,
   ShieldAlert, TrendingUp, Loader2, AlertTriangle, Info,
@@ -11,6 +9,7 @@ import {
 import { showSuccess, showError } from '../../utils/toast';
 import { User } from '../../types';
 import { apiUrl } from '../../lib/api';
+import { DateRangePicker } from '../../components/ui/DateRangePicker';
 
 interface PreviewData {
   nb_fichiers: number;
@@ -119,32 +118,14 @@ const AgregationCDR = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-slate-300 text-xs font-bold uppercase tracking-wider">
-                  Date de début
-                </Label>
-                <Input
-                  type="date"
-                  value={dateDeb}
-                  onChange={e => { setDateDeb(e.target.value); resetPreview(); }}
-                  className="bg-white/5 border-white/20 text-white"
-                  style={{ colorScheme: 'dark' }}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-slate-300 text-xs font-bold uppercase tracking-wider">
-                  Date de fin
-                </Label>
-                <Input
-                  type="date"
-                  value={dateFin}
-                  onChange={e => { setDateFin(e.target.value); resetPreview(); }}
-                  className="bg-white/5 border-white/20 text-white"
-                  style={{ colorScheme: 'dark' }}
-                />
-              </div>
-            </div>
+            <DateRangePicker
+              dateDebut={dateDeb}
+              dateFin={dateFin}
+              onChangeDebut={setDateDeb}
+              onChangeFin={setDateFin}
+              onReset={resetPreview}
+              accentColor="blue"
+            />
 
             <Button
               onClick={handlePreview}
