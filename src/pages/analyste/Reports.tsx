@@ -9,6 +9,7 @@ import { AnalystReport, ReportDestination, ReportStatus, User } from '../../type
 import { generateRapportAnalyseCDR, generateRapportSimbox } from '../../lib/generatePDF';
 import { apiUrl } from '../../lib/api';
 import { DateRangePicker } from '../../components/ui/DateRangePicker';
+import { Label } from '@/components/ui/label';
 
 type ReportTab = 'brouillons' | 'arpce' | 'operateurs';
 
