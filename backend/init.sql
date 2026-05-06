@@ -116,3 +116,21 @@ CREATE INDEX IF NOT EXISTS idx_simbox_statut
   ON simbox_detectees(statut);
 CREATE INDEX IF NOT EXISTS idx_rapports_reference
   ON rapports(reference_unique);
+
+-- Table des utilisateurs du système
+CREATE TABLE IF NOT EXISTS users (
+  id VARCHAR(36) PRIMARY KEY,
+  nom VARCHAR(120) NOT NULL,
+  email VARCHAR(120) NOT NULL UNIQUE,
+  role ENUM('AGENT_MTN','AGENT_AIRTEL','ANALYSTE','ARPCE') NOT NULL,
+  operateur ENUM('MTN','AIRTEL') NULL,
+  password VARCHAR(255) NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Utilisateurs initiaux (correspondant aux comptes de démo)
+INSERT IGNORE INTO users (id, nom, email, role, operateur, password) VALUES
+  ('u1', 'BASSINGA BENIJAH', 'agent.mtn@mtn.cg',      'AGENT_MTN',    'MTN',    'Mtn@2024!'),
+  ('u2', 'BOUINIE BENI',     'agent.airtel@airtel.cg', 'AGENT_AIRTEL', 'AIRTEL', 'Airtel@2024!'),
+  ('u3', 'BATOUMENI RICH',   'analyste@arpce.cg',      'ANALYSTE',     NULL,     'Analyste@1!'),
+  ('u4', 'NGOUBOU ROCH',     'controleur@arpce.cg',    'ARPCE',        NULL,     'Arpce@2024!');

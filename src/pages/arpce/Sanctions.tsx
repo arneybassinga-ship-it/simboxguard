@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { AlertOctagon, AlertTriangle, CheckCircle } from 'lucide-react';
+import { AlertOctagon, AlertTriangle, CheckCircle, Download, ShieldX } from 'lucide-react';
 import { showSuccess, showError } from '../../utils/toast';
 import { BlockingOrder, Sanction } from '../../types';
+import { generateRapportSanction } from '../../lib/generatePDF';
 import { apiUrl } from '../../lib/api';
 
 const ArpceSanctions = () => {
@@ -23,6 +24,13 @@ const ArpceSanctions = () => {
   };
   useEffect(() => { loadData(); }, []);
 
+  /* Pour chaque ordre, détermine si un avertissement a déjà été émis */
+  const hasAvertissement = (ordreId: string) =>
+    sanctions.some(s => s.ordre_blocage_id === ordreId && s.type === 'avertissement');
+
+  const hasMiseEnDemeure = (ordreId: string) =>
+    sanctions.some(s => s.ordre_blocage_id === ordreId && s.type === 'mise_en_demeure');
+
   const envoyer = async (ordre: BlockingOrder) => {
     setBusy(ordre.id);
     try {
@@ -31,7 +39,9 @@ const ArpceSanctions = () => {
         body: JSON.stringify({ ordre_id: ordre.id, operateur: ordre.operateur }),
       });
       if (!resp.ok) { const err = await resp.json(); throw new Error(err.error); }
-      showSuccess(`Avertissement envoyé à ${ordre.operateur} ✓`);
+      const data = await resp.json();
+      const label = data.type === 'mise_en_demeure' ? 'Mise en demeure' : 'Avertissement';
+      showSuccess(`${label} envoyé à ${ordre.operateur} ✓`);
       loadData();
     } catch (e) { showError(e instanceof Error ? e.message : 'Erreur'); }
     setBusy('');
@@ -45,7 +55,7 @@ const ArpceSanctions = () => {
     <DashboardLayout title="Sanctions — ARPCE">
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4 mb-5">
+      <div className="grid grid-cols-4 gap-4 mb-5">
         <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-1">
             <AlertTriangle size={14} className="text-red-400"/>
@@ -55,10 +65,21 @@ const ArpceSanctions = () => {
         </div>
         <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-1">
-            <AlertOctagon size={14} className="text-purple-400"/>
-            <p className="text-xs text-slate-400">Sanctions émises</p>
+            <AlertOctagon size={14} className="text-orange-400"/>
+            <p className="text-xs text-slate-400">Avertissements</p>
           </div>
-          <p className="text-3xl font-bold text-purple-400">{sanctions.length}</p>
+          <p className="text-3xl font-bold text-orange-400">
+            {sanctions.filter(s => s.type === 'avertissement').length}
+          </p>
+        </div>
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <ShieldX size={14} className="text-red-500"/>
+            <p className="text-xs text-slate-400">Mises en demeure</p>
+          </div>
+          <p className="text-3xl font-bold text-red-500">
+            {sanctions.filter(s => s.type === 'mise_en_demeure').length}
+          </p>
         </div>
         <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-1">
@@ -86,30 +107,57 @@ const ArpceSanctions = () => {
             </div>
           ) : (
             <div className="space-y-3">
-              {depasses.map(o => (
-                <div key={o.id} className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <AlertTriangle size={14} className="text-red-400"/>
-                      <span className="text-xs font-bold text-red-400">{o.operateur} — Délai dépassé</span>
-                    </div>
-                    <p className="text-[10px] text-slate-500">
-                      Émis le {new Date(o.date_emission).toLocaleString('fr-FR')} — Limite : {new Date(o.date_limite).toLocaleString('fr-FR')}
-                    </p>
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {(Array.isArray(o.liste_sim_json) ? o.liste_sim_json : []).map((sim: string) => (
-                        <span key={sim} className="font-mono text-[10px] bg-white/5 border border-red-500/30 text-red-300 px-2 py-0.5 rounded">
-                          {sim}
-                        </span>
-                      ))}
+              {depasses.map(o => {
+                const dejaAverti   = hasAvertissement(o.id);
+                const dejaMED      = hasMiseEnDemeure(o.id);
+                const sanctionFaite = dejaMED;
+                const btnLabel = dejaMED
+                  ? '✓ Mise en demeure émise'
+                  : dejaAverti
+                    ? '⚠ Envoyer mise en demeure'
+                    : '⚡ Envoyer avertissement';
+                const btnClass = dejaMED
+                  ? 'bg-slate-700 cursor-not-allowed text-slate-400'
+                  : dejaAverti
+                    ? 'bg-red-700 hover:bg-red-800 text-white'
+                    : 'bg-red-600 hover:bg-red-700 text-white';
+                return (
+                  <div key={o.id} className="bg-red-500/10 border border-red-500/30 rounded-xl p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <AlertTriangle size={14} className="text-red-400"/>
+                          <span className="text-xs font-bold text-red-400">{o.operateur} — Délai dépassé</span>
+                          {dejaAverti && !dejaMED && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-orange-500/20 border border-orange-500/30 text-orange-400">
+                              AVERTISSEMENT ÉMIS
+                            </span>
+                          )}
+                          {dejaMED && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-red-500/20 border border-red-500/30 text-red-400">
+                              MISE EN DEMEURE ÉMISE
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-slate-500">
+                          Émis le {new Date(o.date_emission).toLocaleString('fr-FR')} — Limite : {new Date(o.date_limite).toLocaleString('fr-FR')}
+                        </p>
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {(Array.isArray(o.liste_sim_json) ? o.liste_sim_json : []).map((sim: string) => (
+                            <span key={sim} className="font-mono text-[10px] bg-white/5 border border-red-500/30 text-red-300 px-2 py-0.5 rounded">
+                              {sim}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <Button size="sm" disabled={busy === o.id || sanctionFaite} onClick={() => envoyer(o)}
+                        className={`text-xs shrink-0 ml-4 ${btnClass}`}>
+                        {busy === o.id ? '...' : btnLabel}
+                      </Button>
                     </div>
                   </div>
-                  <Button size="sm" disabled={busy === o.id} onClick={() => envoyer(o)}
-                    className="bg-red-600 hover:bg-red-700 text-white text-xs shrink-0 ml-4">
-                    {busy === o.id ? '...' : '⚡ Envoyer avertissement'}
-                  </Button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>
@@ -129,21 +177,39 @@ const ArpceSanctions = () => {
             <p className="text-slate-400 text-sm text-center py-8">Aucune sanction émise.</p>
           ) : (
             <div className="space-y-2">
-              {sanctions.map(s => (
-                <div key={s.id} className="bg-white/5 border border-white/10 rounded-xl p-3 flex items-start justify-between">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <AlertOctagon size={12} className="text-purple-400"/>
-                      <span className="text-xs font-bold text-white">{s.operateur} — {s.type}</span>
+              {sanctions.map(s => {
+                const isMED = s.type === 'mise_en_demeure';
+                return (
+                  <div key={s.id} className="bg-white/5 border border-white/10 rounded-xl p-3 flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        {isMED
+                          ? <ShieldX size={12} className="text-red-500"/>
+                          : <AlertOctagon size={12} className="text-orange-400"/>
+                        }
+                        <span className="text-xs font-bold text-white">{s.operateur} — {s.type.replace('_', ' ')}</span>
+                      </div>
+                      <p className="text-[10px] text-slate-500">{new Date(s.date_sanction).toLocaleString('fr-FR')}</p>
+                      <p className="text-[11px] text-slate-400 mt-1 truncate">{s.log_details}</p>
                     </div>
-                    <p className="text-[10px] text-slate-500">{new Date(s.date_sanction).toLocaleString('fr-FR')}</p>
-                    <p className="text-[11px] text-slate-400 mt-1">{s.log_details}</p>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+                        isMED
+                          ? 'bg-red-500/20 border-red-500/30 text-red-400'
+                          : 'bg-orange-500/20 border-orange-500/30 text-orange-400'
+                      }`}>
+                        {s.type === 'mise_en_demeure' ? 'MISE EN DEMEURE' : 'AVERTISSEMENT'}
+                      </span>
+                      <button
+                        onClick={() => generateRapportSanction(s, s.operateur)}
+                        className="p-1.5 rounded-lg bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white transition-colors"
+                        title="Télécharger PDF">
+                        <Download size={13} />
+                      </button>
+                    </div>
                   </div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-500/20 border border-purple-500/30 text-purple-300 shrink-0 ml-3">
-                    {s.type?.toUpperCase()}
-                  </span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>

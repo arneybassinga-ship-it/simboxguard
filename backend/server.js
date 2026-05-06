@@ -1192,20 +1192,28 @@ app.post('/api/sanctions/avertir', async (req, res) => {
       "UPDATE ordres_blocage SET statut = 'depasse' WHERE id = ?",
       [ordre_id]
     );
+    const [[existingAvertissement]] = await conn.query(
+      "SELECT id FROM sanctions WHERE ordre_blocage_id = ? AND type = 'avertissement'",
+      [ordre_id]
+    );
+    const sanctionType = existingAvertissement ? 'mise_en_demeure' : 'avertissement';
     const sanctionId = uuidv4();
     const emailCible = operateur === 'MTN' ? 'agent_mtn@operateur.cg' : 'agent_airtel@operateur.cg';
+    const logMessage = sanctionType === 'mise_en_demeure'
+      ? `Mise en demeure émise le ${new Date().toISOString()} — Récidive : avertissement précédent ignoré`
+      : `Avertissement envoyé le ${new Date().toISOString()} — SIM non bloquée dans le délai imparti`;
     await conn.query(
-      "INSERT INTO sanctions (id, ordre_blocage_id, operateur, type, email_envoye, log_details) VALUES (?, ?, ?, 'avertissement', ?, ?)",
-      [sanctionId, ordre_id, operateur, emailCible, `Avertissement envoyé le ${new Date().toISOString()} — SIM non bloquée dans le délai`]
+      'INSERT INTO sanctions (id, ordre_blocage_id, operateur, type, email_envoye, log_details) VALUES (?, ?, ?, ?, ?, ?)',
+      [sanctionId, ordre_id, operateur, sanctionType, emailCible, logMessage]
     );
-    console.log(`[SANCTION] Email → ${emailCible}`);
+    console.log(`[SANCTION ${sanctionType.toUpperCase()}] Email → ${emailCible}`);
     await logAudit(conn, {
       ...req.auditUser,
       action: 'EMETTRE_SANCTION',
       entite_type: 'sanction', entite_id: sanctionId, operateur,
-      details: { ordre_id, email_envoye: emailCible, type: 'avertissement' },
+      details: { ordre_id, email_envoye: emailCible, type: sanctionType },
     });
-    res.json({ success: true, sanction_id: sanctionId, email_envoye: emailCible });
+    res.json({ success: true, sanction_id: sanctionId, email_envoye: emailCible, type: sanctionType });
   } catch (err) {
     console.error('[SANCTIONS AVERTIR ERROR]', err);
     res.status(500).json({ error: 'Erreur serveur' });
@@ -1677,6 +1685,124 @@ app.get('/api/audit', async (req, res) => {
     });
   } catch (err) {
     console.error('[AUDIT GET ERROR]', err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  } finally {
+    conn.release();
+  }
+});
+
+/* ================= GESTION UTILISATEURS ================= */
+
+const VALID_ROLES = ['AGENT_MTN', 'AGENT_AIRTEL', 'ANALYSTE', 'ARPCE'];
+const VALID_OPERATEURS_USER = ['MTN', 'AIRTEL'];
+
+app.get('/api/users', async (_req, res) => {
+  const conn = await pool.getConnection();
+  try {
+    const [rows] = await conn.query('SELECT id, nom, email, role, operateur, created_at FROM users ORDER BY created_at ASC');
+    res.json(rows);
+  } catch (err) {
+    console.error('[USERS GET ERROR]', err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  } finally {
+    conn.release();
+  }
+});
+
+app.post('/api/users', async (req, res) => {
+  const { nom, email, role, operateur = null, password } = req.body;
+  if (!nom || !email || !role || !password) {
+    return res.status(400).json({ error: 'nom, email, role et password sont requis' });
+  }
+  if (!VALID_ROLES.includes(role)) {
+    return res.status(400).json({ error: 'Rôle invalide' });
+  }
+  if (operateur && !VALID_OPERATEURS_USER.includes(operateur)) {
+    return res.status(400).json({ error: 'Opérateur invalide' });
+  }
+  const conn = await pool.getConnection();
+  try {
+    const id = uuidv4();
+    await conn.query(
+      'INSERT INTO users (id, nom, email, role, operateur, password) VALUES (?, ?, ?, ?, ?, ?)',
+      [id, nom, email, role, operateur || null, password]
+    );
+    await logAudit(conn, {
+      ...req.auditUser,
+      action: 'CREER_UTILISATEUR',
+      entite_type: 'user', entite_id: id,
+      details: { nom, email, role },
+    });
+    const [[user]] = await conn.query('SELECT id, nom, email, role, operateur, created_at FROM users WHERE id = ?', [id]);
+    res.status(201).json(user);
+  } catch (err) {
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ error: 'Cet email est déjà utilisé' });
+    }
+    console.error('[USERS POST ERROR]', err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  } finally {
+    conn.release();
+  }
+});
+
+app.patch('/api/users/:id', async (req, res) => {
+  const { id } = req.params;
+  const { nom, email, role, operateur, password } = req.body;
+  if (role && !VALID_ROLES.includes(role)) {
+    return res.status(400).json({ error: 'Rôle invalide' });
+  }
+  if (operateur && !VALID_OPERATEURS_USER.includes(operateur)) {
+    return res.status(400).json({ error: 'Opérateur invalide' });
+  }
+  const conn = await pool.getConnection();
+  try {
+    const fields = [];
+    const vals = [];
+    if (nom)      { fields.push('nom = ?');      vals.push(nom); }
+    if (email)    { fields.push('email = ?');    vals.push(email); }
+    if (role)     { fields.push('role = ?');     vals.push(role); }
+    if (operateur !== undefined) { fields.push('operateur = ?'); vals.push(operateur || null); }
+    if (password) { fields.push('password = ?'); vals.push(password); }
+    if (fields.length === 0) return res.status(400).json({ error: 'Aucun champ à mettre à jour' });
+    vals.push(id);
+    await conn.query(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`, vals);
+    const [[user]] = await conn.query('SELECT id, nom, email, role, operateur, created_at FROM users WHERE id = ?', [id]);
+    if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
+    await logAudit(conn, {
+      ...req.auditUser,
+      action: 'MODIFIER_UTILISATEUR',
+      entite_type: 'user', entite_id: id,
+      details: { champs: fields.map(f => f.split(' ')[0]) },
+    });
+    res.json(user);
+  } catch (err) {
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ error: 'Cet email est déjà utilisé' });
+    }
+    console.error('[USERS PATCH ERROR]', err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  } finally {
+    conn.release();
+  }
+});
+
+app.delete('/api/users/:id', async (req, res) => {
+  const { id } = req.params;
+  const conn = await pool.getConnection();
+  try {
+    const [[user]] = await conn.query('SELECT id, nom, email, role FROM users WHERE id = ?', [id]);
+    if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
+    await conn.query('DELETE FROM users WHERE id = ?', [id]);
+    await logAudit(conn, {
+      ...req.auditUser,
+      action: 'SUPPRIMER_UTILISATEUR',
+      entite_type: 'user', entite_id: id,
+      details: { nom: user.nom, email: user.email, role: user.role },
+    });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[USERS DELETE ERROR]', err);
     res.status(500).json({ error: 'Erreur serveur' });
   } finally {
     conn.release();

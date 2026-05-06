@@ -29,6 +29,7 @@ import ArpceReports from "./pages/arpce/Reports";
 import ArpceBlocking from "./pages/arpce/Blocking";
 import ArpceSanctions from "./pages/arpce/Sanctions";
 import ArpceAuditLog from "./pages/arpce/AuditLog";
+import ArpceUsers from "./pages/arpce/Users";
 
 const queryClient = new QueryClient();
 
@@ -120,6 +121,11 @@ const App = () => (
           <Route path="/arpce/sanctions" element={
             <AuthGuard allowedRoles={['ARPCE']}>
               <ArpceSanctions />
+            </AuthGuard>
+          } />
+          <Route path="/arpce/users" element={
+            <AuthGuard allowedRoles={['ARPCE']}>
+              <ArpceUsers />
             </AuthGuard>
           } />
           <Route path="/arpce/audit" element={

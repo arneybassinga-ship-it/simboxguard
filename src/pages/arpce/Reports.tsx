@@ -3,8 +3,9 @@ import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { FileText, ShieldAlert } from 'lucide-react';
+import { FileText, ShieldAlert, Download } from 'lucide-react';
 import { showSuccess, showError } from '../../utils/toast';
+import { generateRapportSimbox } from '../../lib/generatePDF';
 import { apiUrl } from '../../lib/api';
 
 interface RapportSim {
@@ -165,13 +166,23 @@ const ArpceReports = () => {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-4 flex-shrink-0">
-                  <div className="text-right">
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className="text-right mr-2">
                     <p className="text-2xl font-bold text-red-400">
                       {r.contenu_json?.total ?? 0}
                     </p>
                     <p className="text-[10px] text-slate-400">MSISDN à bloquer</p>
                   </div>
+                  <Button size="sm" variant="outline"
+                    onClick={() => {
+                      const sims = getRapportSims(r);
+                      if (sims.length === 0) return showError('Aucune donnée à exporter');
+                      generateRapportSimbox(sims, r.operateur, r.analyste_nom ?? 'Analyste fraude');
+                    }}
+                    className="border-white/20 text-slate-300 hover:bg-white/10 text-xs gap-1.5">
+                    <Download size={13} />
+                    PDF
+                  </Button>
                   <Button size="sm"
                     onClick={() => { setModalBlocage(r); setDelaiChoisi(48); }}
                     className="bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 border border-orange-500/30 text-xs gap-1.5">
