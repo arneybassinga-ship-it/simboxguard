@@ -7,8 +7,6 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 echo "==> Nettoyage des processus existants"
 fuser -k 4000/tcp 2>/dev/null && echo "    Port 4000 libéré" || true
 fuser -k 8080/tcp 2>/dev/null && echo "    Port 8080 libéré" || true
-fuser -k 8081/tcp 2>/dev/null && echo "    Port 8081 libéré" || true
-fuser -k 8082/tcp 2>/dev/null && echo "    Port 8082 libéré" || true
 pkill -f "node server.js" 2>/dev/null && echo "    Ancien backend Node tué" || true
 sleep 1
 

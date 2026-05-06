@@ -713,6 +713,8 @@ app.post('/api/rapports/envoyer-arpce', async (req, res) => {
       return res.status(400).json({ error: 'Aucune SIM confirmée à envoyer' });
     }
 
+    await conn.beginTransaction();
+
     const rapportId = uuidv4();
     const reference = buildReportReference();
     const signatureDate = toSqlDateTime();
@@ -738,6 +740,7 @@ app.post('/api/rapports/envoyer-arpce', async (req, res) => {
       [rapportId, 'simbox', 'analyste_fraude', 'arpce', operateur, JSON.stringify(contenu), reference, 'envoye', analyste_nom, signatureDate, date_debut, date_fin]
     );
 
+    await conn.commit();
     await logAudit(conn, {
       ...req.auditUser,
       action: 'ENVOYER_RAPPORT_ARPCE',
@@ -747,6 +750,7 @@ app.post('/api/rapports/envoyer-arpce', async (req, res) => {
     res.json({ success: true, rapport_id: rapportId, reference_unique: reference });
 
   } catch (err) {
+    await conn.rollback();
     console.error('[RAPPORTS ARPCE ERROR]', err);
     res.status(500).json({ error: 'Erreur serveur' });
 
@@ -1659,7 +1663,7 @@ app.get('/api/audit', async (req, res) => {
     const [[{ total }]] = await conn.query(countQuery, params);
 
     query += ' ORDER BY date_action DESC LIMIT ? OFFSET ?';
-    params.push(parseInt(limit, 10), parseInt(offset, 10));
+    params.push(Math.min(parseInt(limit, 10) || 100, 500), Math.max(parseInt(offset, 10) || 0, 0));
 
     const [rows] = await conn.query(query, params);
     res.json({

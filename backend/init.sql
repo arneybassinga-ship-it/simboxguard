@@ -37,15 +37,12 @@ CREATE TABLE IF NOT EXISTS sim_analyses (
   FOREIGN KEY (cdr_id) REFERENCES cdr_files(id) ON DELETE CASCADE
 );
 
-ALTER TABLE sim_analyses 
-ADD COLUMN motif_refus VARCHAR(255) NULL,
-ADD COLUMN details_refus TEXT NULL,
-ADD COLUMN date_decision DATETIME NULL;
+ALTER TABLE sim_analyses ADD COLUMN IF NOT EXISTS motif_refus VARCHAR(255) NULL;
+ALTER TABLE sim_analyses ADD COLUMN IF NOT EXISTS details_refus TEXT NULL;
+ALTER TABLE sim_analyses ADD COLUMN IF NOT EXISTS date_decision DATETIME NULL;
 
-
-ALTER TABLE sim_analyses
-ADD COLUMN justificatif_confirmation TEXT NULL,
-ADD COLUMN criteres_declencheurs JSON NULL;
+ALTER TABLE sim_analyses ADD COLUMN IF NOT EXISTS justificatif_confirmation TEXT NULL;
+ALTER TABLE sim_analyses ADD COLUMN IF NOT EXISTS criteres_declencheurs JSON NULL;
 
 CREATE TABLE IF NOT EXISTS rapports (
   id VARCHAR(36) PRIMARY KEY,

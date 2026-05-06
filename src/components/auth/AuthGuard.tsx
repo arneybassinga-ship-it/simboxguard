@@ -18,7 +18,15 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children, allowedRoles }) 
       return;
     }
 
-    const parsedUser = JSON.parse(storedUser) as User;
+    let parsedUser: User;
+    try {
+      parsedUser = JSON.parse(storedUser) as User;
+    } catch {
+      localStorage.removeItem('currentUser');
+      navigate('/');
+      return;
+    }
+
     if (allowedRoles && !allowedRoles.includes(parsedUser.role)) {
       navigate('/unauthorized');
       return;

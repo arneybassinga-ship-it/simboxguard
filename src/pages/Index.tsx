@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShieldAlert, Mail, Lock, KeyRound, ArrowRight } from 'lucide-react';
 import { MOCK_USERS } from '../store/mockData';
@@ -11,13 +11,18 @@ const Index = () => {
   const [password, setPassword] = useState('');
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isReturningUser, setIsReturningUser] = useState(false);
+
+  useEffect(() => {
+    setIsReturningUser(!!localStorage.getItem('currentUser'));
+  }, []);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    
-    const user = MOCK_USERS.find(u => u.email === email);
-    
+
+    const user = MOCK_USERS.find(u => u.email === email && u.password === password);
+
     setTimeout(() => {
       if (user) {
         setStep('otp');
@@ -76,7 +81,7 @@ const Index = () => {
                 <span className="text-blue-400 font-bold tracking-[0.3em] text-xs uppercase">SIMVigil</span>
               </div>
               <h1 className="text-4xl font-bold text-white mb-3 tracking-tight">
-                {step === 'login' ? 'Ravi de vous revoir' : 'Vérification'}
+                {step === 'otp' ? 'Vérification' : isReturningUser ? 'Ravi de vous revoir' : 'Bienvenue'}
               </h1>
               <p className="text-slate-400 text-sm font-medium">
                 {step === 'login' 

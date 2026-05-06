@@ -18,6 +18,7 @@ const ArpceSanctions = () => {
       fetch(apiUrl('/api/ordres')).then(r => r.json()),
       fetch(apiUrl('/api/sanctions')).then(r => r.json()),
     ]).then(([o, s]) => { setOrdres(o); setSanctions(s); })
+      .catch(() => showError('Erreur chargement des données'))
       .finally(() => setLoading(false));
   };
   useEffect(() => { loadData(); }, []);

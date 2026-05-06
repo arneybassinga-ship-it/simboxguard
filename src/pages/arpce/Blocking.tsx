@@ -33,7 +33,8 @@ const ArpceBlocking = () => {
     ]).then(([a, o]) => {
       setSims(a.filter((x: SimAnalysis) => x.statut === 'confirmee'));
       setOrdres(o);
-    }).finally(() => setLoading(false));
+    }).catch(() => showError('Erreur chargement des données'))
+      .finally(() => setLoading(false));
   };
   useEffect(() => { loadData(); }, []);
 
