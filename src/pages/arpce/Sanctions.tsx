@@ -217,7 +217,7 @@ const ArpceSanctions = () => {
                         {s.type === 'mise_en_demeure' ? 'MISE EN DEMEURE' : 'AVERTISSEMENT'}
                       </span>
                       <button
-                        onClick={() => generateRapportSanction(s, s.operateur)}
+                        onClick={() => { try { generateRapportSanction(s, s.operateur); } catch { showError('Erreur génération PDF'); } }}
                         className="p-1.5 rounded-lg bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white transition-colors"
                         title="Télécharger PDF">
                         <Download size={13} />

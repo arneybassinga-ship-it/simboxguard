@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Role } from '../../types';
+import { getToken } from '../../lib/api';
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -13,7 +14,8 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children, allowedRoles }) 
 
   useEffect(() => {
     const storedUser = localStorage.getItem('currentUser');
-    if (!storedUser) {
+    if (!storedUser || !getToken()) {
+      localStorage.removeItem('currentUser');
       navigate('/');
       return;
     }

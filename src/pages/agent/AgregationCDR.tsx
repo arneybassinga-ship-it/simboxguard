@@ -45,8 +45,8 @@ const AgregationCDR = () => {
     setPreviewing(true);
     setResult(null);
     try {
-      const r = await fetch(
-        `${apiUrl('/api/cdr/preview-agregation')}?operateur=${operateur}&date_debut=${dateDeb}&date_fin=${dateFin}`
+      const r = await apiFetch(
+        `/api/cdr/preview-agregation?operateur=${operateur}&date_debut=${dateDeb}&date_fin=${dateFin}`
       );
       const data = await r.json();
       if (!r.ok) throw new Error(data.error);
@@ -105,6 +105,65 @@ const AgregationCDR = () => {
             </p>
           </div>
         </div>
+
+        {/* Comment ça marche */}
+        <Card className="bg-white/5 border-white/10">
+          <CardHeader>
+            <CardTitle className="text-white text-sm flex items-center gap-2">
+              <Info size={15} className="text-slate-400" />
+              Comment fonctionne l'agrégation ?
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-0">
+              {[
+                {
+                  step: '1',
+                  color: 'bg-blue-500/20 border-blue-500/30 text-blue-400',
+                  title: 'Collecte des lignes brutes',
+                  desc: 'Toutes les lignes CDR importées sur la période sont rassemblées — chaque ligne représente un appel (numéro appelant, numéro appelé, durée, statut, heure, origine).',
+                },
+                {
+                  step: '2',
+                  color: 'bg-purple-500/20 border-purple-500/30 text-purple-400',
+                  title: 'Regroupement par MSISDN',
+                  desc: 'Les lignes sont regroupées par numéro SIM. Peu importe le nombre de fichiers CDR importés : tout est cumulé pour avoir une vue complète du comportement de chaque numéro sur la période.',
+                },
+                {
+                  step: '3',
+                  color: 'bg-yellow-500/20 border-yellow-500/30 text-yellow-400',
+                  title: 'Calcul des indicateurs comportementaux',
+                  desc: 'Pour chaque MSISDN, le système calcule : appels/heure, durée moyenne des appels, taux d\'échec, % d\'appels nocturnes (22h–6h), % d\'appels internationaux, nombre de correspondants uniques et ancienneté.',
+                },
+                {
+                  step: '4',
+                  color: 'bg-orange-500/20 border-orange-500/30 text-orange-400',
+                  title: 'Score de suspicion (0–100)',
+                  desc: 'Chaque indicateur est pondéré selon son importance dans la détection SimBox. Le score final détermine le niveau d\'alerte : Normale (< 40), Élevée (40–70), Critique (> 70).',
+                },
+                {
+                  step: '5',
+                  color: 'bg-green-500/20 border-green-500/30 text-green-400',
+                  title: 'Résultat transmis à l\'Analyste',
+                  desc: 'Les MSISDN avec un score élevé ou critique sont enregistrées dans sim_analyses et deviennent visibles pour l\'Analyste fraude, qui peut les confirmer et les transmettre à l\'ARPCE pour blocage.',
+                },
+              ].map((item, i, arr) => (
+                <div key={item.step} className="flex gap-3">
+                  <div className="flex flex-col items-center">
+                    <div className={`w-7 h-7 rounded-full border flex items-center justify-center text-xs font-black shrink-0 ${item.color}`}>
+                      {item.step}
+                    </div>
+                    {i < arr.length - 1 && <div className="w-px flex-1 bg-white/10 my-1" />}
+                  </div>
+                  <div className={`pb-${i < arr.length - 1 ? '4' : '0'}`}>
+                    <p className="text-xs font-bold text-white mb-0.5">{item.title}</p>
+                    <p className="text-xs text-slate-400 leading-relaxed">{item.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Formulaire période */}
         <Card className="bg-white/5 border-white/10">

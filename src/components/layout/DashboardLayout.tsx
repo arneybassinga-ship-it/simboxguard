@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User } from '../../types';
+import { clearToken } from '../../lib/api';
 import {
   LayoutDashboard, FileUp, ShieldAlert, FileText,
   LogOut, Bell, User as UserIcon, Activity, Ban, ChevronRight, Database, ScanSearch, ClipboardList, Users
@@ -18,6 +19,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
   const user = JSON.parse(localStorage.getItem('currentUser') || '{}') as User;
 
   const handleLogout = () => {
+    clearToken();
     localStorage.removeItem('currentUser');
     navigate('/');
   };
