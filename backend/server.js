@@ -1072,7 +1072,7 @@ app.get('/api/cdr/files', requireRole('AGENT_MTN', 'AGENT_AIRTEL', 'ANALYSTE', '
   }
 });
 
-app.get('/api/cdr/sim/:msisdn/historique', async (req, res) => {
+app.get('/api/cdr/sim/:msisdn/historique', requireRole('ANALYSTE', 'ARPCE'), async (req, res) => {
   const { msisdn } = req.params;
   const conn = await pool.getConnection();
   try {
@@ -1126,7 +1126,7 @@ app.get('/api/cdr/sim/:msisdn/historique', async (req, res) => {
   }
 });
 
-app.get('/api/cdr/analyses', async (req, res) => {
+app.get('/api/cdr/analyses', requireRole('AGENT_MTN', 'AGENT_AIRTEL', 'ANALYSTE', 'ARPCE'), async (req, res) => {
   const conn = await pool.getConnection();
   try {
     const role = req.auditUser?.user_role;
@@ -1152,7 +1152,7 @@ app.get('/api/cdr/analyses', async (req, res) => {
   }
 });
 
-app.get('/api/rapports', async (req, res) => {
+app.get('/api/rapports', requireRole('AGENT_MTN', 'AGENT_AIRTEL', 'ANALYSTE', 'ARPCE'), async (req, res) => {
   const { role, operateur, expediteur_role, statut_rapport } = req.query;
   const conn = await pool.getConnection();
   try {
@@ -1187,7 +1187,7 @@ app.get('/api/rapports', async (req, res) => {
   }
 });
 
-app.get('/api/ordres', async (_req, res) => {
+app.get('/api/ordres', requireRole('AGENT_MTN', 'AGENT_AIRTEL', 'ARPCE'), async (_req, res) => {
   const conn = await pool.getConnection();
   try {
     // Marquer automatiquement en "depasse" les ordres en_attente dont le délai est écoulé
@@ -1216,7 +1216,7 @@ app.get('/api/ordres', async (_req, res) => {
   }
 });
 
-app.get('/api/sanctions', async (_req, res) => {
+app.get('/api/sanctions', requireRole('ARPCE'), async (_req, res) => {
   const conn = await pool.getConnection();
   try {
     const [rows] = await conn.query(
@@ -1710,7 +1710,7 @@ app.post('/api/cdr/detecter-simbox', requireRole('AGENT_MTN', 'AGENT_AIRTEL'), a
 });
 
 // Lister les simbox détectées
-app.get('/api/simbox', async (req, res) => {
+app.get('/api/simbox', requireRole('AGENT_MTN', 'AGENT_AIRTEL', 'ANALYSTE', 'ARPCE'), async (req, res) => {
   const { statut, operateur } = req.query;
   const conn = await pool.getConnection();
   try {
@@ -1841,7 +1841,7 @@ app.post('/api/auth/login', async (req, res) => {
 
 /* ================= EMAILS SIMULES ================= */
 
-app.get('/api/emails', async (req, res) => {
+app.get('/api/emails', requireRole('ARPCE'), async (req, res) => {
   const { operateur } = req.query;
   const conn = await pool.getConnection();
   try {
