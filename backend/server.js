@@ -717,6 +717,17 @@ app.post('/api/cdr/upload', requireRole('AGENT_MTN', 'AGENT_AIRTEL'), upload.sin
   try {
     await conn.beginTransaction();
 
+    // Bloquer le double import du même fichier
+    const [existing] = await conn.query(
+      'SELECT id FROM cdr_files WHERE nom_fichier = ? AND operateur = ? AND agent_id = ?',
+      [file.originalname, operateur.toUpperCase(), agent_id]
+    );
+    if (existing.length > 0) {
+      await conn.rollback();
+      conn.release();
+      return res.status(409).json({ error: `Ce fichier a déjà été importé : "${file.originalname}". Supprimez l'existant avant de le réimporter.` });
+    }
+
     await conn.query(
       'INSERT INTO cdr_files VALUES (?, ?, ?, ?, ?, ?, ?)',
       [cdrId, file.originalname, dateImport, cdrLineEntities.length, 'en_attente', operateur.toUpperCase(), agent_id]
@@ -931,6 +942,24 @@ app.post('/api/analyste/rapports/generer', requireRole('ANALYSTE'), async (req, 
 
   const conn = await pool.getConnection();
   try {
+    // Bloquer la génération d'un rapport en double sur la même période
+    const [doublon] = await conn.query(
+      `SELECT id FROM rapports
+       WHERE expediteur_role = 'analyste_fraude'
+         AND destinataire_role = ?
+         AND operateur = ?
+         AND periode_debut = ?
+         AND periode_fin = ?
+         AND statut_rapport != 'brouillon'`,
+      [destinataire, operateur, date_debut, date_fin]
+    );
+    if (doublon.length > 0) {
+      conn.release();
+      return res.status(409).json({
+        error: `Un rapport a déjà été envoyé pour cette période (${date_debut} → ${date_fin}) et cet opérateur. Modifiez la période ou l'opérateur.`,
+      });
+    }
+
     const [rows] = await conn.query(
       `SELECT sa.*, cf.nom_fichier
        FROM sim_analyses sa
@@ -1303,6 +1332,14 @@ app.post('/api/sanctions/avertir', requireRole('ARPCE'), async (req, res) => {
       "SELECT id FROM sanctions WHERE ordre_blocage_id = ? AND type = 'avertissement'",
       [ordre_id]
     );
+    const [[existingMiseEnDemeure]] = await conn.query(
+      "SELECT id FROM sanctions WHERE ordre_blocage_id = ? AND type = 'mise_en_demeure'",
+      [ordre_id]
+    );
+    if (existingMiseEnDemeure) {
+      conn.release();
+      return res.status(409).json({ error: 'Sanction maximale (mise en demeure) déjà appliquée sur cet ordre.' });
+    }
     const sanctionType = existingAvertissement ? 'mise_en_demeure' : 'avertissement';
     const sanctionId = uuidv4();
     const emailCible = operateur === 'MTN' ? 'agent.mtn@mtn.cg' : 'agent.airtel@airtel.cg';
@@ -1341,100 +1378,82 @@ app.post('/api/sanctions/avertir', requireRole('ARPCE'), async (req, res) => {
 
 /* ================= AGREGATION ================= */
 
-// Prévisualiser les données disponibles sur une période avant d'agréger
-app.get('/api/cdr/preview-agregation', requireRole('AGENT_MTN', 'AGENT_AIRTEL'), async (req, res) => {
-  const { operateur, date_debut, date_fin } = req.query;
-
-  if (!operateur || !date_debut || !date_fin) {
-    return res.status(400).json({ error: 'operateur, date_debut, date_fin requis' });
-  }
-
-  const VALID_OPERATEURS = ['MTN', 'AIRTEL', 'TOUS'];
-  if (!VALID_OPERATEURS.includes(operateur)) {
-    return res.status(400).json({ error: 'Opérateur invalide' });
-  }
-
+// Retourner les fichiers CDR en attente d'agrégation pour un opérateur
+app.get('/api/cdr/fichiers-en-attente', requireRole('AGENT_MTN', 'AGENT_AIRTEL'), async (req, res) => {
+  const { operateur } = req.query;
+  if (!operateur) return res.status(400).json({ error: 'operateur requis' });
   const conn = await pool.getConnection();
   try {
     const [rows] = await conn.query(
-      `SELECT
-        COUNT(DISTINCT cf.id)        AS nb_fichiers,
-        COUNT(cl.id)                 AS nb_lignes,
-        COUNT(DISTINCT cl.numero_sim) AS nb_sim_uniques
-       FROM cdr_lines cl
-       JOIN cdr_files cf ON cl.cdr_id = cf.id
-       WHERE cl.operateur = ?
-         AND cl.date_heure >= ?
-         AND cl.date_heure < DATE_ADD(?, INTERVAL 1 DAY)`,
-      [operateur, date_debut, date_fin]
+      `SELECT cf.id, cf.nom_fichier, cf.date_import, cf.nb_lignes, cf.statut, cf.operateur,
+              MIN(cl.date_heure) AS date_debut_donnees,
+              MAX(cl.date_heure) AS date_fin_donnees
+       FROM cdr_files cf
+       LEFT JOIN cdr_lines cl ON cl.cdr_id = cf.id
+       WHERE cf.operateur = ? AND cf.statut = 'en_attente'
+       GROUP BY cf.id
+       ORDER BY cf.date_import DESC`,
+      [operateur]
     );
-    res.json(rows[0]);
+    res.json(rows);
   } catch (err) {
-    console.error('[PREVIEW AGREGATION ERROR]', err);
+    console.error('[FICHIERS EN ATTENTE ERROR]', err);
     res.status(500).json({ error: 'Erreur serveur' });
   } finally {
     conn.release();
   }
 });
 
-// Lancer l'agrégation : regroupe toutes les lignes CDR sur la période et analyse par SIM
+// Lancer l'agrégation : regroupe toutes les lignes des fichiers sélectionnés et analyse par SIM
 app.post('/api/cdr/agreger', requireRole('AGENT_MTN', 'AGENT_AIRTEL'), async (req, res) => {
-  const { operateur, date_debut, date_fin, agent_id } = req.body;
+  const { operateur, cdr_file_ids, agent_id } = req.body;
 
-  if (!operateur || !date_debut || !date_fin || !agent_id) {
-    return res.status(400).json({ error: 'operateur, date_debut, date_fin, agent_id requis' });
+  if (!operateur || !agent_id || !Array.isArray(cdr_file_ids) || cdr_file_ids.length === 0) {
+    return res.status(400).json({ error: 'operateur, agent_id et cdr_file_ids (tableau) requis' });
   }
 
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
 
-    const nomAgregation = `Agrégation ${operateur} — ${date_debut} → ${date_fin}`;
+    // Vérifier que tous les fichiers appartiennent à cet opérateur et sont en_attente
+    const placeholders = cdr_file_ids.map(() => '?').join(',');
+    const [fichiers] = await conn.query(
+      `SELECT id, nom_fichier FROM cdr_files WHERE id IN (${placeholders}) AND operateur = ? AND statut = 'en_attente'`,
+      [...cdr_file_ids, operateur]
+    );
 
-    // Récupérer toutes les lignes CDR de la période pour cet opérateur
+    if (fichiers.length === 0) {
+      await conn.rollback();
+      return res.status(400).json({ error: 'Aucun fichier valide sélectionné' });
+    }
+
+    const validIds = fichiers.map(f => f.id);
+    const validPlaceholders = validIds.map(() => '?').join(',');
+
+    // Récupérer les lignes CDR des fichiers sélectionnés (DISTINCT pour éviter doublons)
     const [lines] = await conn.query(
-      `SELECT cl.*
+      `SELECT DISTINCT cl.numero_sim, cl.numero_appele, cl.date_heure,
+              cl.duree_secondes, cl.statut_appel, cl.origine, cl.operateur
        FROM cdr_lines cl
-       JOIN cdr_files cf ON cl.cdr_id = cf.id
-       WHERE cl.operateur = ?
-         AND cl.date_heure >= ?
-         AND cl.date_heure < DATE_ADD(?, INTERVAL 1 DAY)`,
-      [operateur, date_debut, date_fin]
+       WHERE cl.cdr_id IN (${validPlaceholders})`,
+      validIds
     );
 
     if (lines.length === 0) {
       await conn.rollback();
-      return res.status(400).json({ error: 'Aucune donnée CDR sur cette période' });
+      return res.status(400).json({ error: 'Aucune ligne CDR dans les fichiers sélectionnés' });
     }
 
-    // Remplace toute agrégation précédente sur la même période pour garder une démo rejouable.
-    const [existingAggregations] = await conn.query(
-      `SELECT id
-       FROM cdr_files
-       WHERE nom_fichier = ?
-         AND operateur = ?
-         AND agent_id = ?`,
-      [nomAgregation, operateur, agent_id]
-    );
-
-    for (const aggregation of existingAggregations) {
-      await conn.query('DELETE FROM cdr_files WHERE id = ?', [aggregation.id]);
-    }
+    const nomFichiers = fichiers.map(f => f.nom_fichier).join(', ');
+    const nomAgregation = `Agrégation ${operateur} — ${fichiers.length} fichier(s) — ${new Date().toISOString().slice(0, 10)}`;
 
     // Créer un fichier CDR virtuel représentant l'agrégation
     const cdrVirtuelId = uuidv4();
     const dateAgregation = new Date().toISOString().slice(0, 19).replace('T', ' ');
     await conn.query(
       'INSERT INTO cdr_files VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [
-        cdrVirtuelId,
-        nomAgregation,
-        dateAgregation,
-        lines.length,
-        'analyse',
-        operateur,
-        agent_id,
-      ]
+      [cdrVirtuelId, nomAgregation, dateAgregation, lines.length, 'analyse', operateur, agent_id]
     );
 
     // Regrouper les lignes par numéro SIM
@@ -1461,28 +1480,17 @@ app.post('/api/cdr/agreger', requireRole('AGENT_MTN', 'AGENT_AIRTEL'), async (re
       await conn.query(
         'INSERT INTO sim_analyses (id, cdr_id, numero_sim, operateur, score_suspicion, niveau_alerte, statut, date_analyse, criteres) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [
-          analysis.id,
-          cdrVirtuelId,
-          analysis.numero_sim,
-          analysis.operateur,
-          analysis.score_suspicion,
-          analysis.niveau_alerte,
-          analysis.statut,
-          analysis.date_analyse,
-          JSON.stringify(analysis.criteres),
+          analysis.id, cdrVirtuelId, analysis.numero_sim, analysis.operateur,
+          analysis.score_suspicion, analysis.niveau_alerte, analysis.statut,
+          analysis.date_analyse, JSON.stringify(analysis.criteres),
         ]
       );
     }
 
     // Marquer les fichiers sources comme analysés
     await conn.query(
-      `UPDATE cdr_files cf
-       INNER JOIN cdr_lines cl ON cl.cdr_id = cf.id
-       SET cf.statut = 'analyse'
-       WHERE cl.operateur = ?
-         AND cl.date_heure >= ?
-         AND cl.date_heure < DATE_ADD(?, INTERVAL 1 DAY)`,
-      [operateur, date_debut, date_fin]
+      `UPDATE cdr_files SET statut = 'analyse' WHERE id IN (${validPlaceholders})`,
+      validIds
     );
 
     await conn.commit();
@@ -1490,8 +1498,8 @@ app.post('/api/cdr/agreger', requireRole('AGENT_MTN', 'AGENT_AIRTEL'), async (re
       ...req.auditUser,
       action: 'AGREGER_CDR',
       entite_type: 'cdr_file', entite_id: cdrVirtuelId, operateur,
-      details: { date_debut, date_fin, nb_lignes: lines.length, nb_sims: analyses.length,
-        nb_critiques: analyses.filter(a => a.niveau_alerte === 'critique').length },
+      details: { fichiers: nomFichiers, nb_fichiers: fichiers.length, nb_lignes: lines.length,
+        nb_sims: analyses.length, nb_critiques: analyses.filter(a => a.niveau_alerte === 'critique').length },
     });
     res.status(201).json({
       nb_sim_analysees: analyses.length,
