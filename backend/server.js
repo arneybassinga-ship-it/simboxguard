@@ -219,18 +219,54 @@ const normalizeColumnName = (value) => String(value ?? '')
   .replace(/[^\w]+/g, '_')
   .replace(/^_+|_+$/g, '');
 
+// D\u00e9tecte le s\u00e9parateur dominant dans un buffer CSV (virgule, point-virgule, tab, pipe)
+const detectCsvDelimiter = (buffer) => {
+  const sample = buffer.toString('utf8', 0, Math.min(3000, buffer.length));
+  const firstLine = sample.split(/\r?\n/)[0] || '';
+  const counts = {
+    ',':  (firstLine.match(/,/g)  || []).length,
+    ';':  (firstLine.match(/;/g)  || []).length,
+    '\t': (firstLine.match(/\t/g) || []).length,
+    '|':  (firstLine.match(/\|/g) || []).length,
+  };
+  return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+};
+
+// Lit un fichier CDR (CSV ou Excel) et retourne les lignes JSON
+const parseCdrFile = (buffer, originalname) => {
+  const ext = originalname.split('.').pop().toLowerCase();
+  let workbook;
+  if (ext === 'csv') {
+    const delimiter = detectCsvDelimiter(buffer);
+    workbook = xlsx.read(buffer, { type: 'buffer', FS: delimiter });
+  } else {
+    workbook = xlsx.read(buffer, { type: 'buffer' });
+  }
+  // Premi\u00e8re feuille non vide (\u00e9vite les feuilles de titre ou de garde)
+  const sheetName = workbook.SheetNames.find(name => {
+    const s = workbook.Sheets[name];
+    return s && Object.keys(s).filter(k => !k.startsWith('!')).length > 2;
+  }) || workbook.SheetNames[0];
+  const sheet = workbook.Sheets[sheetName];
+  return xlsx.utils.sheet_to_json(sheet, { defval: '' });
+};
+
 const toDateTimeString = (value) => {
   if (!value) return null;
   if (typeof value === 'number') {
+    // Unix timestamp en secondes (> 1 milliard) ou en millisecondes (> 1 billion)
+    if (value > 1_000_000_000) {
+      const ts = value > 1_000_000_000_000 ? value : value * 1000;
+      const d = new Date(ts);
+      if (!Number.isNaN(d.getTime()) && d.getFullYear() >= 2000)
+        return d.toISOString().slice(0, 19).replace('T', ' ');
+    }
+    // Code de date Excel (valeurs < 100 000)
     const parsed = xlsx.SSF.parse_date_code(value);
     if (!parsed) return null;
     const date = new Date(Date.UTC(
-      parsed.y,
-      parsed.m - 1,
-      parsed.d,
-      parsed.H || 0,
-      parsed.M || 0,
-      parsed.S || 0,
+      parsed.y, parsed.m - 1, parsed.d,
+      parsed.H || 0, parsed.M || 0, parsed.S || 0,
     ));
     if (Number.isNaN(date.getTime())) return null;
     return date.toISOString().slice(0, 19).replace('T', ' ');
@@ -244,6 +280,18 @@ const toDateTimeString = (value) => {
   const raw = String(value).trim();
   if (!raw) return null;
 
+  // Unix timestamp en chaîne (10 chiffres = secondes, 13 = millisecondes)
+  if (/^\d{10}$/.test(raw)) {
+    const d = new Date(Number(raw) * 1000);
+    if (!Number.isNaN(d.getTime()) && d.getFullYear() >= 2000)
+      return d.toISOString().slice(0, 19).replace('T', ' ');
+  }
+  if (/^\d{13}$/.test(raw)) {
+    const d = new Date(Number(raw));
+    if (!Number.isNaN(d.getTime()) && d.getFullYear() >= 2000)
+      return d.toISOString().slice(0, 19).replace('T', ' ');
+  }
+
   const compactMatch = raw.match(/^(\d{4})(\d{2})(\d{2})[ T]?(\d{2})(\d{2})(\d{2})$/);
   if (compactMatch) {
     const [, y, m, d, hh, mm, ss] = compactMatch;
@@ -255,16 +303,11 @@ const toDateTimeString = (value) => {
     let [, d, m, y, hh = '00', mm = '00', ss = '00'] = dmyMatch;
     if (y.length === 2) y = `20${y}`;
     const date = new Date(
-      Number(y),
-      Number(m) - 1,
-      Number(d),
-      Number(hh),
-      Number(mm),
-      Number(ss),
+      Number(y), Number(m) - 1, Number(d),
+      Number(hh), Number(mm), Number(ss),
     );
-    if (!Number.isNaN(date.getTime())) {
+    if (!Number.isNaN(date.getTime()))
       return date.toISOString().slice(0, 19).replace('T', ' ');
-    }
   }
 
   const isoLike = raw.replace(/\//g, '-');
@@ -314,39 +357,73 @@ const parseJsonArray = (value) => {
 // Synonymes acceptés pour chaque champ interne
 const CHAMPS_SYNONYMES = {
   numero_sim: [
-    'msisdn', 'msisdn_a', 'a_msisdn', 'numero_sim', 'sim', 'a_number',
-    'calling_number', 'calling_party', 'caller', 'calling', 'numero_appelant',
-    'a_party', 'ani', 'cli', 'source', 'subscriber', 'numero', 'phone',
-    'from', 'src', 'originating', 'origine_number', 'calling_msisdn',
-    'imsi_msisdn', 'abonnee', 'abonnee_a', 'caller_id',
+    // Standards internationaux
+    'msisdn', 'msisdn_a', 'a_msisdn', 'a_number', 'a_party', 'a_party_number',
+    'calling_number', 'calling_party', 'calling_msisdn', 'caller', 'caller_id',
+    'ani', 'cli', 'originating_number', 'originating_msisdn', 'originating',
+    'origin_number', 'origine_number', 'imsi_msisdn',
+    // Noms français courants (opérateurs africains)
+    'numero_sim', 'numero_appelant', 'numero_a', 'msisdn_appelant',
+    'abonnee', 'abonnee_a', 'abonne_a', 'abonne', 'subscriber',
+    // Noms génériques
+    'sim', 'source', 'from', 'src', 'phone', 'numero', 'msisdn_source',
   ],
   numero_appele: [
-    'numero_appele', 'numero_appelé', 'b_number', 'called_number', 'called_party',
-    'destination', 'dialed', 'called', 'b_party', 'dnis', 'numero_destination',
-    'called_msisdn', 'b_msisdn', 'msisdn_b', 'to', 'dst', 'terminating',
-    'dest', 'b_calling', 'dialed_number', 'callee', 'abonnee_b', 'destination_number',
+    // Standards internationaux
+    'b_number', 'b_msisdn', 'msisdn_b', 'b_party', 'b_party_number',
+    'called_number', 'called_party', 'called_msisdn', 'called', 'callee',
+    'dialed', 'dialed_number', 'dnis', 'destination', 'destination_number',
+    'terminating', 'terminating_number', 'terminating_msisdn',
+    // Noms français courants
+    'numero_appele', 'numero_appelé', 'numero_destination', 'numero_b',
+    'msisdn_appele', 'abonnee_b', 'abonne_b',
+    // Noms génériques
+    'to', 'dst', 'dest', 'b_calling',
   ],
   date_heure: [
-    'date_heure', 'call_time', 'datetime', 'timestamp', 'start_time', 'date_time',
-    'call_date', 'start', 'heure', 'date', 'call_start', 'start_datetime',
-    'call_timestamp', 'event_time', 'time', 'date_appel', 'heure_appel',
-    'call_begin', 'begin_time', 'record_date', 'answer_time', 'setup_time',
+    // Standards internationaux
+    'datetime', 'timestamp', 'start_time', 'start_datetime', 'call_start',
+    'call_time', 'call_date', 'call_timestamp', 'call_begin', 'call_date_time',
+    'event_time', 'begin_time', 'answer_time', 'setup_time', 'record_date',
+    'start', 'time',
+    // Noms français courants (opérateurs africains)
+    'date_heure', 'date_appel', 'heure_appel', 'date_debut', 'heure_debut',
+    'date_debut_appel', 'debut_appel', 'date_et_heure', 'date_time',
+    'date', 'heure',
+    // Autres
+    'call_start_time', 'start_date_time', 'origination_time',
   ],
   duree_secondes: [
-    'duree_secondes', 'duration', 'duree', 'call_duration', 'duration_sec',
-    'duree_sec', 'length', 'talk_time', 'billsec', 'duration_seconds',
-    'call_length', 'elapsed', 'seconds', 'duree_appel', 'total_duration',
-    'charged_duration', 'conversation_time', 'holding_time',
+    // Standards internationaux
+    'duration', 'duration_sec', 'duration_seconds', 'call_duration',
+    'billsec', 'billed_duration', 'charged_duration', 'talk_time',
+    'conversation_time', 'holding_time', 'call_length', 'elapsed', 'seconds',
+    // Noms français courants
+    'duree_secondes', 'duree_sec', 'duree', 'duree_appel', 'duree_communication',
+    'duree_facturee', 'duree_en_secondes',
+    // Noms génériques
+    'length', 'total_duration',
   ],
   statut_appel: [
-    'statut_appel', 'status', 'result', 'call_status', 'call_result', 'etat',
-    'disposition', 'outcome', 'answer_status', 'call_state', 'statut',
-    'release_cause', 'termination_cause',
+    // Standards internationaux
+    'status', 'call_status', 'call_result', 'call_state', 'disposition',
+    'outcome', 'answer_status', 'release_cause', 'termination_cause',
+    'release_cause_code', 'cause_code',
+    // Noms français courants
+    'statut_appel', 'statut', 'etat', 'etat_appel', 'cause_fin',
+    'cause_liberation', 'resultat', 'resultat_appel',
+    // Noms génériques
+    'result',
   ],
   origine: [
-    'origine', 'type', 'call_type', 'direction', 'traffic_type', 'traffic',
-    'call_direction', 'service_type', 'nature', 'call_nature', 'service',
-    'roaming_flag', 'in_out', 'traffic_case',
+    // Standards internationaux
+    'call_type', 'traffic_type', 'traffic', 'call_direction', 'direction',
+    'service_type', 'call_nature', 'roaming_flag', 'in_out', 'traffic_case',
+    // Noms français courants (opérateurs africains)
+    'origine', 'nature', 'service', 'type_appel', 'type_trafic',
+    'sens_appel', 'type_communication', 'sens', 'type_traffic',
+    // Noms génériques
+    'type',
   ],
 };
 
@@ -414,6 +491,18 @@ const infererOrigine = (rawOrigine, numeroAppele) => {
   const origine = normaliserOrigine(rawOrigine);
   if (origine) return origine;
   return detecterOrigineDepuisNumero(numeroAppele) || 'national';
+};
+
+// Retire le préfixe international (+242 / 00242 / 242) pour normaliser le numéro
+const stripPrefixCongo = (numero) =>
+  String(numero || '').replace(/\s+/g, '').replace(/^(\+242|00242|242)/, '');
+
+// Vérifie que le numero_sim appartient bien à l'opérateur qui importe
+const isSimValide = (numero, operateur) => {
+  const n = stripPrefixCongo(numero);
+  if (operateur === 'MTN')    return /^06\d{7}$/.test(n);
+  if (operateur === 'AIRTEL') return /^0[45]\d{7}$/.test(n);
+  return true; // opérateur inconnu ou TOUS : pas de filtre
 };
 
 const REPORT_STATUSES = ['brouillon', 'envoye', 'consulte', 'traite'];
@@ -518,9 +607,7 @@ app.post('/api/cdr/detect-columns', requireRole('AGENT_MTN', 'AGENT_AIRTEL'), up
 
   let rows = [];
   try {
-    const workbook = xlsx.read(file.buffer, { type: 'buffer' });
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    rows = xlsx.utils.sheet_to_json(sheet, { defval: '' });
+    rows = parseCdrFile(file.buffer, file.originalname);
   } catch {
     return res.status(400).json({ error: 'Impossible de lire le fichier' });
   }
@@ -662,9 +749,7 @@ app.post('/api/cdr/upload', requireRole('AGENT_MTN', 'AGENT_AIRTEL'), upload.sin
 
   let rows = [];
   try {
-    const workbook = xlsx.read(file.buffer, { type: 'buffer' });
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    rows = xlsx.utils.sheet_to_json(sheet, { defval: '' });
+    rows = parseCdrFile(file.buffer, file.originalname);
   } catch {
     return res.status(400).json({ error: 'Impossible de lire le fichier' });
   }
@@ -674,11 +759,18 @@ app.post('/api/cdr/upload', requireRole('AGENT_MTN', 'AGENT_AIRTEL'), upload.sin
 
   const cdrLineEntities = [];
   let lignesRejetees = 0;
+  let lignesMauvaisOperateur = 0;
 
   for (const row of rows) {
-    // Extraction via mapping dynamique (la colonne MSISDN du fichier → numero_sim interne)
     const numero_sim = String(row[mapping.numero_sim] ?? '').trim();
     if (!numero_sim) { lignesRejetees++; continue; }
+
+    // Validation préfixe opérateur — seul numero_sim est contrôlé
+    if (!isSimValide(numero_sim, operateur.toUpperCase())) {
+      lignesMauvaisOperateur++;
+      lignesRejetees++;
+      continue;
+    }
 
     const numero_appele = String(row[mapping.numero_appele] ?? '').trim();
     if (!numero_appele) { lignesRejetees++; continue; }
@@ -704,6 +796,19 @@ app.post('/api/cdr/upload', requireRole('AGENT_MTN', 'AGENT_AIRTEL'), upload.sin
       date_heure, Math.round(duree_secondes), statut, origine,
       operateur.toUpperCase(),
     ]);
+  }
+
+  // Si plus de 80% des lignes ont un mauvais préfixe opérateur → c'est le mauvais fichier
+  const totalLignes = rows.length;
+  if (totalLignes > 5 && lignesMauvaisOperateur / totalLignes > 0.8) {
+    const prefixes = operateur.toUpperCase() === 'MTN'
+      ? '06XXXXXXX ou 0024206XXXXXXX'
+      : '04XXXXXXX, 05XXXXXXX, 0024204XXXXXXX ou 0024205XXXXXXX';
+    return res.status(400).json({
+      error: `Ce fichier ne correspond pas à l'opérateur ${operateur.toUpperCase()}. `
+        + `${lignesMauvaisOperateur} numéros sur ${totalLignes} ne respectent pas les préfixes attendus (${prefixes}). `
+        + `Vérifiez que vous importez le bon fichier CDR.`,
+    });
   }
 
   if (cdrLineEntities.length === 0) {
