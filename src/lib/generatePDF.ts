@@ -22,7 +22,7 @@ const addHeader = (doc: jsPDF, titre: string, sousTitre: string, operateur?: str
   doc.setTextColor(...COLORS.white);
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
-  doc.text('SimboxGuard', 15, 14);
+  doc.text('SIMVigil', 15, 14);
 
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
@@ -66,7 +66,7 @@ const addFooter = (doc: jsPDF, pageNum: number, totalPages: number) => {
   doc.line(15, pageH - 15, 195, pageH - 15);
   doc.setTextColor(...COLORS.gray);
   doc.setFontSize(7);
-  doc.text('SimboxGuard • ARPCE Congo • Document confidentiel', 15, pageH - 9);
+  doc.text('SIMVigil • ARPCE Congo • Document confidentiel', 15, pageH - 9);
   doc.text(`Page ${pageNum} / ${totalPages}`, 195, pageH - 9, { align: 'right' });
 };
 

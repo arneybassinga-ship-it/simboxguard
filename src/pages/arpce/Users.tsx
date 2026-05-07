@@ -15,7 +15,7 @@ interface AppUser {
   email: string;
   role: Role;
   operateur: Operateur | null;
-  created_at: string;
+  date_creation: string;
 }
 
 const ROLE_LABELS: Record<Role, string> = {
@@ -84,9 +84,9 @@ const ArpceUsers = () => {
       };
       if (form.password) body.password = form.password;
 
-      const url    = modal === 'create' ? apiUrl('/api/users') : apiUrl(`/api/users/${editTarget!.id}`);
+      const url    = modal === 'create' ? '/api/users' : `/api/users/${editTarget!.id}`;
       const method = modal === 'create' ? 'POST' : 'PATCH';
-      const resp   = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const resp   = await apiFetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const data   = await resp.json();
       if (!resp.ok) throw new Error(data.error);
       showSuccess(modal === 'create' ? `Utilisateur ${data.nom} créé ✓` : `Utilisateur mis à jour ✓`);
@@ -166,7 +166,7 @@ const ArpceUsers = () => {
                       </td>
                       <td className="py-3 pr-4 text-slate-400 text-xs">{u.operateur ?? '—'}</td>
                       <td className="py-3 text-slate-500 text-xs">
-                        {new Date(u.created_at).toLocaleDateString('fr-FR')}
+                        {new Date(u.date_creation).toLocaleDateString('fr-FR')}
                       </td>
                       <td className="py-3 text-right">
                         {confirmDelete === u.id ? (
