@@ -14,7 +14,7 @@ const Index = () => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const pendingUser = useRef<User | null>(null);
-  const isReturningUser = localStorage.getItem('hasVisitedBefore') === 'true';
+  const lastUserName = localStorage.getItem('lastUserName');
 
   useEffect(() => {
     const stored = localStorage.getItem('currentUser');
@@ -29,7 +29,6 @@ const Index = () => {
       }
       return;
     }
-    localStorage.setItem('hasVisitedBefore', 'true');
   }, [navigate]);
 
   const redirectUser = (user: User) => {
@@ -71,6 +70,7 @@ const Index = () => {
         const user = pendingUser.current;
         if (user) {
           localStorage.setItem('currentUser', JSON.stringify(user));
+          localStorage.setItem('lastUserName', user.nom);
           showSuccess(`Bienvenue, ${user.nom}`);
           redirectUser(user);
         }
@@ -105,12 +105,14 @@ const Index = () => {
                 <span className="text-blue-400 font-bold tracking-[0.3em] text-xs uppercase">SIMVigil</span>
               </div>
               <h1 className="text-4xl font-bold text-white mb-3 tracking-tight">
-                {step === 'otp' ? 'Vérification' : isReturningUser ? 'Ravi de vous revoir' : 'Bienvenue'}
+                {step === 'otp' ? 'Vérification' : lastUserName ? `Ravi de vous revoir` : 'Bienvenue'}
               </h1>
               <p className="text-slate-400 text-sm font-medium">
-                {step === 'login'
-                  ? 'Veuillez entrer vos identifiants pour continuer.'
-                  : 'Un code de sécurité a été envoyé à votre adresse.'}
+                {step === 'otp'
+                  ? 'Un code de sécurité a été envoyé à votre adresse.'
+                  : lastUserName
+                  ? `Bienvenue, ${lastUserName}. Entrez vos identifiants pour continuer.`
+                  : 'Veuillez entrer vos identifiants pour continuer.'}
               </p>
             </div>
 
