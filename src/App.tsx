@@ -15,6 +15,7 @@ import AgregationCDR from "./pages/agent/AgregationCDR";
 import SimboxDetection from "./pages/agent/SimboxDetection";
 import AgentAnalyses from "./pages/agent/Analyses";
 import AgentBlocking from "./pages/agent/Blocking";
+import AgentReports from "./pages/agent/Reports";
 
 // Pages Analyste
 import AnalysteDashboard from "./pages/analyste/Dashboard";
@@ -72,6 +73,11 @@ const App = () => (
           <Route path="/agent/blocking" element={
             <AuthGuard allowedRoles={['AGENT_MTN', 'AGENT_AIRTEL']}>
               <AgentBlocking />
+            </AuthGuard>
+          } />
+          <Route path="/agent/reports" element={
+            <AuthGuard allowedRoles={['AGENT_MTN', 'AGENT_AIRTEL']}>
+              <AgentReports />
             </AuthGuard>
           } />
 

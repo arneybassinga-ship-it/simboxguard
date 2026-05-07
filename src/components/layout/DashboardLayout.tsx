@@ -58,6 +58,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
       { icon: ScanSearch, label: 'Détecter Simbox', path: '/agent/simbox' },
       { icon: FileText, label: 'Mes Analyses', path: '/agent/analyses' },
       { icon: Ban, label: 'Ordres de Blocage', path: '/agent/blocking' },
+      { icon: Bell, label: 'Rapports reçus', path: '/agent/reports' },
     ],
     AGENT_AIRTEL: [
       { icon: LayoutDashboard, label: 'Tableau de bord', path: '/agent/dashboard' },
@@ -66,6 +67,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
       { icon: ScanSearch, label: 'Détecter Simbox', path: '/agent/simbox' },
       { icon: FileText, label: 'Mes Analyses', path: '/agent/analyses' },
       { icon: Ban, label: 'Ordres de Blocage', path: '/agent/blocking' },
+      { icon: Bell, label: 'Rapports reçus', path: '/agent/reports' },
     ],
     ANALYSTE: [
       { icon: LayoutDashboard, label: 'Tableau de bord', path: '/analyste/dashboard' },
