@@ -199,12 +199,19 @@ const ArpceReports = () => {
                     <Download size={13} />
                     PDF
                   </Button>
-                  <Button size="sm"
-                    onClick={() => { setModalBlocage(r); setDelaiChoisi(48); }}
-                    className="bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 border border-orange-500/30 text-xs gap-1.5">
-                    <ShieldAlert size={13} />
-                    Émettre ordre
-                  </Button>
+                  {r.statut_rapport === 'traite' ? (
+                    <span className="text-[10px] font-bold px-3 py-1.5 rounded-lg bg-green-500/10 text-green-400 border border-green-500/20 flex items-center gap-1.5">
+                      <ShieldAlert size={13} />
+                      Ordre émis
+                    </span>
+                  ) : (
+                    <Button size="sm"
+                      onClick={() => { setModalBlocage(r); setDelaiChoisi(48); }}
+                      className="bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 border border-orange-500/30 text-xs gap-1.5">
+                      <ShieldAlert size={13} />
+                      Émettre ordre
+                    </Button>
+                  )}
                 </div>
               </div>
 
