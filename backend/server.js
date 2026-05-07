@@ -493,15 +493,36 @@ const infererOrigine = (rawOrigine, numeroAppele) => {
   return detecterOrigineDepuisNumero(numeroAppele) || 'national';
 };
 
+// Normalise les numéros congolais en gardant un format local exploitable.
+// Les fichiers Excel/CSV peuvent transformer 0650010003 en 650010003 :
+// on réinjecte donc le 0 national quand le préfixe opérateur est visible.
+const normalizePhoneValue = (numero) => {
+  if (numero === null || numero === undefined) return '';
+  if (typeof numero === 'number' && Number.isFinite(numero)) {
+    return String(Math.trunc(numero));
+  }
+  return String(numero).trim();
+};
+
 // Retire le préfixe international (+242 / 00242 / 242) pour normaliser le numéro
 const stripPrefixCongo = (numero) =>
-  String(numero || '').replace(/\s+/g, '').replace(/^(\+242|00242|242)/, '');
+  normalizePhoneValue(numero)
+    .replace(/[^\d+]/g, '')
+    .replace(/^(\+242|00242|242)/, '')
+    .replace(/^\+/, '');  // supprime tout + résiduel (ex. +06XXXXXXX sans code Congo)
+
+const normalizeNumeroCongo = (numero) => {
+  const n = stripPrefixCongo(numero);
+  // Couvre 8 à 11 chiffres (sans le 0 initial) — Excel peut supprimer le 0 de tête
+  if (/^[456]\d{7,10}$/.test(n)) return `0${n}`;
+  return n;
+};
 
 // Vérifie que le numero_sim appartient bien à l'opérateur qui importe
 const isSimValide = (numero, operateur) => {
-  const n = stripPrefixCongo(numero);
-  if (operateur === 'MTN')    return /^06\d{7}$/.test(n);
-  if (operateur === 'AIRTEL') return /^0[45]\d{7}$/.test(n);
+  const n = normalizeNumeroCongo(numero);
+  if (operateur === 'MTN')    return /^06\d{7,10}$/.test(n);
+  if (operateur === 'AIRTEL') return /^0[45]\d{7,10}$/.test(n);
   return true; // opérateur inconnu ou TOUS : pas de filtre
 };
 
@@ -760,19 +781,24 @@ app.post('/api/cdr/upload', requireRole('AGENT_MTN', 'AGENT_AIRTEL'), upload.sin
   const cdrLineEntities = [];
   let lignesRejetees = 0;
   let lignesMauvaisOperateur = 0;
+  const echantillonRejet = [];
 
   for (const row of rows) {
-    const numero_sim = String(row[mapping.numero_sim] ?? '').trim();
+    const rawSim = row[mapping.numero_sim];
+    const numero_sim = normalizeNumeroCongo(rawSim);
     if (!numero_sim) { lignesRejetees++; continue; }
 
     // Validation préfixe opérateur — seul numero_sim est contrôlé
     if (!isSimValide(numero_sim, operateur.toUpperCase())) {
       lignesMauvaisOperateur++;
       lignesRejetees++;
+      if (echantillonRejet.length < 5) {
+        echantillonRejet.push({ brut: String(rawSim ?? ''), normalise: numero_sim });
+      }
       continue;
     }
 
-    const numero_appele = String(row[mapping.numero_appele] ?? '').trim();
+    const numero_appele = normalizeNumeroCongo(row[mapping.numero_appele]);
     if (!numero_appele) { lignesRejetees++; continue; }
 
     const date_heure = toDateTimeString(row[mapping.date_heure]);
@@ -802,12 +828,15 @@ app.post('/api/cdr/upload', requireRole('AGENT_MTN', 'AGENT_AIRTEL'), upload.sin
   const totalLignes = rows.length;
   if (totalLignes > 5 && lignesMauvaisOperateur / totalLignes > 0.8) {
     const prefixes = operateur.toUpperCase() === 'MTN'
-      ? '06XXXXXXX ou 0024206XXXXXXX'
-      : '04XXXXXXX, 05XXXXXXX, 0024204XXXXXXX ou 0024205XXXXXXX';
+      ? '06XXXXXXX/06XXXXXXXX ou 0024206XXXXXXX/0024206XXXXXXXX'
+      : '04XXXXXXX/04XXXXXXXX, 05XXXXXXX/05XXXXXXXX, 0024204XXXXXXX/0024204XXXXXXXX ou 0024205XXXXXXX/0024205XXXXXXXX';
+    const diagMsg = echantillonRejet.length > 0
+      ? ` Exemples rejetés (brut → normalisé) : ${echantillonRejet.map(e => `"${e.brut}"→"${e.normalise}"`).join(', ')}.`
+      : '';
     return res.status(400).json({
       error: `Ce fichier ne correspond pas à l'opérateur ${operateur.toUpperCase()}. `
         + `${lignesMauvaisOperateur} numéros sur ${totalLignes} ne respectent pas les préfixes attendus (${prefixes}). `
-        + `Vérifiez que vous importez le bon fichier CDR.`,
+        + `Vérifiez que vous importez le bon fichier CDR.${diagMsg}`,
     });
   }
 
