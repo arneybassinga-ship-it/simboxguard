@@ -118,16 +118,20 @@ const Reports = () => {
   };
 
   const handleDownload = (report: AnalystReport) => {
-    const items = getReportItems(report);
-    if (items.length === 0) {
-      showError('Aucune donnee a exporter pour ce rapport');
-      return;
+    try {
+      const items = getReportItems(report);
+      if (items.length === 0) {
+        showError('Aucune donnée à exporter pour ce rapport');
+        return;
+      }
+      if (report.destinataire_role === 'arpce') {
+        generateRapportSimbox(items, report.operateur, report.analyste_nom || user.nom);
+        return;
+      }
+      generateRapportAnalyseCDR(items, report.operateur);
+    } catch {
+      showError('Erreur lors de la génération du PDF');
     }
-    if (report.destinataire_role === 'arpce') {
-      generateRapportSimbox(items, report.operateur, report.analyste_nom || user.nom);
-      return;
-    }
-    generateRapportAnalyseCDR(items, report.operateur);
   };
 
   return (

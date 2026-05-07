@@ -11,6 +11,18 @@ import { apiFetch } from '../../lib/api';
 interface RapportSim {
   id: string;
   numero_sim: string;
+  score_suspicion?: number;
+  niveau_alerte?: string;
+  statut?: string;
+  criteres?: {
+    appels_par_heure?: number;
+    duree_moyenne?: number;
+    taux_echec?: number;
+    pct_nuit?: number;
+    correspondants_uniques?: number;
+    pct_international?: number;
+    anciennete_jours?: number;
+  };
 }
 
 interface Rapport {
@@ -177,9 +189,11 @@ const ArpceReports = () => {
                   </div>
                   <Button size="sm" variant="outline"
                     onClick={() => {
-                      const sims = getRapportSims(r);
-                      if (sims.length === 0) return showError('Aucune donnée à exporter');
-                      generateRapportSimbox(sims, r.operateur, r.analyste_nom ?? 'Analyste fraude');
+                      try {
+                        const sims = getRapportSims(r);
+                        if (sims.length === 0) return showError('Aucune donnée à exporter');
+                        generateRapportSimbox(sims as any, r.operateur, r.analyste_nom ?? 'Analyste fraude');
+                      } catch { showError('Erreur lors de la génération du PDF'); }
                     }}
                     className="border-white/20 text-slate-300 hover:bg-white/10 text-xs gap-1.5">
                     <Download size={13} />

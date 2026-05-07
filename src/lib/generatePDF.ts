@@ -61,7 +61,7 @@ const addHeader = (doc: jsPDF, titre: string, sousTitre: string, operateur?: str
 
 const addFooter = (doc: jsPDF, pageNum: number, totalPages: number) => {
   const pageH = doc.internal.pageSize.height;
-  doc.setDrawColor(...COLORS.lightgray[0], ...COLORS.lightgray.slice(1) as [number, number]);
+  doc.setDrawColor(...COLORS.lightgray);
   doc.setLineWidth(0.3);
   doc.line(15, pageH - 15, 195, pageH - 15);
   doc.setTextColor(...COLORS.gray);
