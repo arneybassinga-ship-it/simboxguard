@@ -92,6 +92,7 @@ export interface Sanction {
   type: 'avertissement' | 'mise_en_demeure';
   operateur: Operator;
   log_details: string;
+  email_envoye?: string | null;
 }
 
 export type ReportStatus = 'brouillon' | 'envoye' | 'consulte' | 'traite';

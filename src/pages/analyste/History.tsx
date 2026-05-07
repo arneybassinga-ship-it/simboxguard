@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { CheckCircle, XCircle, Clock } from 'lucide-react';
 import type { SimAnalysis } from '../../types';
 import { apiUrl } from '../../lib/api';
+import { showError } from '../../utils/toast';
 
 const History = () => {
   const [analyses, setAnalyses] = useState<SimAnalysis[]>([]);
@@ -14,7 +15,10 @@ const History = () => {
 
   useEffect(() => {
     fetch(apiUrl('/api/cdr/analyses'))
-      .then(r => r.json()).then(setAnalyses).finally(() => setLoading(false));
+      .then(r => r.json())
+      .then(setAnalyses)
+      .catch(() => showError('Erreur chargement de l\'historique'))
+      .finally(() => setLoading(false));
   }, []);
 
   const filtered = analyses.filter(a => {

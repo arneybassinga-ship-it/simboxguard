@@ -85,7 +85,7 @@ const AuditLog = () => {
     apiFetch(`/api/audit?${params.toString()}`)
       .then(r => r.json())
       .then(data => { setLogs(data.logs || []); setTotal(data.total || 0); })
-      .catch(() => {})
+      .catch(() => { setLogs([]); setTotal(0); })
       .finally(() => setLoading(false));
   }, [filtreAction, filtreRole, filtreOp, dateDebut, dateFin, page]);
 

@@ -5,6 +5,12 @@ import xlsx from 'xlsx';
 import mysql from 'mysql2/promise';
 import { v4 as uuidv4 } from 'uuid';
 import dotenv from 'dotenv';
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
+
+const BCRYPT_ROUNDS = 10;
+const JWT_SECRET = process.env.JWT_SECRET || 'simvigil_fallback_secret';
+const JWT_EXPIRES = '8h';
 
 dotenv.config();
 
@@ -17,16 +23,35 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Middleware : extrait l'identité utilisateur depuis les headers
+// Middleware : décode le JWT et remplit req.auditUser
 app.use((req, _res, next) => {
-  req.auditUser = {
-    user_id:   req.headers['x-user-id']   || 'inconnu',
-    user_nom:  req.headers['x-user-nom']  || 'inconnu',
-    user_role: req.headers['x-user-role'] || 'inconnu',
-    ip: req.ip || req.headers['x-forwarded-for'] || null,
-  };
+  const auth = req.headers['authorization'];
+  if (auth && auth.startsWith('Bearer ')) {
+    try {
+      const payload = jwt.verify(auth.slice(7), JWT_SECRET);
+      req.auditUser = {
+        user_id:   payload.id   || 'inconnu',
+        user_nom:  payload.nom  || 'inconnu',
+        user_role: payload.role || 'inconnu',
+        ip: req.ip || req.headers['x-forwarded-for'] || null,
+      };
+    } catch {
+      req.auditUser = { user_id: 'inconnu', user_nom: 'inconnu', user_role: 'inconnu', ip: null };
+    }
+  } else {
+    req.auditUser = { user_id: 'inconnu', user_nom: 'inconnu', user_role: 'inconnu', ip: null };
+  }
   next();
 });
+
+// Middleware d'autorisation : vérifie que le rôle du token est autorisé
+const requireRole = (...roles) => (req, res, next) => {
+  const role = req.auditUser?.user_role;
+  if (!role || role === 'inconnu' || !roles.includes(role)) {
+    return res.status(403).json({ error: 'Accès refusé — rôle insuffisant' });
+  }
+  next();
+};
 
 /* ================= DB ================= */
 
@@ -100,6 +125,80 @@ const ensureDatabaseSchema = async () => {
 if (indexes.length === 0) {
   await conn.query(`CREATE INDEX idx_simbox_statut ON simbox_detectees(statut)`);
 }
+
+    // Helper: add column only if it doesn't exist (MySQL-compatible)
+    const addColumnIfMissing = async (table, column, definition) => {
+      const [[row]] = await conn.query(
+        `SELECT COUNT(*) AS cnt FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
+        [table, column]
+      );
+      if (row.cnt === 0) {
+        await conn.query(`ALTER TABLE \`${table}\` ADD COLUMN \`${column}\` ${definition}`);
+      }
+    };
+
+    // Migrations sim_analyses
+    await addColumnIfMissing('sim_analyses', 'motif_refus',               'VARCHAR(255) NULL');
+    await addColumnIfMissing('sim_analyses', 'details_refus',              'TEXT NULL');
+    await addColumnIfMissing('sim_analyses', 'date_decision',              'DATETIME NULL');
+    await addColumnIfMissing('sim_analyses', 'justificatif_confirmation',  'TEXT NULL');
+    await addColumnIfMissing('sim_analyses', 'criteres_declencheurs',      'JSON NULL');
+
+    // Migrations rapports
+    await addColumnIfMissing('rapports', 'reference_unique', 'VARCHAR(40) NULL');
+    await addColumnIfMissing('rapports', 'statut_rapport',   "ENUM('brouillon','envoye','consulte','traite') DEFAULT 'envoye'");
+    await addColumnIfMissing('rapports', 'analyste_nom',     'VARCHAR(120) NULL');
+    await addColumnIfMissing('rapports', 'date_signature',   'DATETIME NULL');
+    await addColumnIfMissing('rapports', 'periode_debut',    'DATE NULL');
+    await addColumnIfMissing('rapports', 'periode_fin',      'DATE NULL');
+    await addColumnIfMissing('rapports', 'statut_lu',        'TINYINT(1) NOT NULL DEFAULT 0');
+
+    // Table emails_simules
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS emails_simules (
+        id VARCHAR(36) PRIMARY KEY,
+        sanction_id VARCHAR(36) NOT NULL,
+        destinataire VARCHAR(120) NOT NULL,
+        sujet VARCHAR(255) NOT NULL,
+        corps TEXT NOT NULL,
+        operateur VARCHAR(20) NOT NULL,
+        type_sanction ENUM('avertissement','mise_en_demeure') NOT NULL,
+        date_envoi DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Table users
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id VARCHAR(36) PRIMARY KEY,
+        nom VARCHAR(120) NOT NULL,
+        email VARCHAR(120) NOT NULL UNIQUE,
+        password VARCHAR(255) NOT NULL,
+        role ENUM('AGENT_MTN','AGENT_AIRTEL','ANALYSTE','ARPCE') NOT NULL,
+        operateur VARCHAR(20) NULL,
+        actif TINYINT(1) NOT NULL DEFAULT 1,
+        date_creation DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    // Insérer les utilisateurs initiaux avec mots de passe hachés (si absents)
+    const seedUsers = [
+      { id: 'u1', nom: 'BASSINGA BENIJAH',  email: 'agent.mtn@mtn.cg',      password: 'Mtn@2024!',    role: 'AGENT_MTN',    operateur: 'MTN' },
+      { id: 'u2', nom: 'BOUINIE BENI',      email: 'agent.airtel@airtel.cg', password: 'Airtel@2024!', role: 'AGENT_AIRTEL', operateur: 'AIRTEL' },
+      { id: 'u3', nom: 'BATOUMENI RICH',    email: 'analyste@arpce.cg',      password: 'Analyste@1!',  role: 'ANALYSTE',     operateur: null },
+      { id: 'u4', nom: 'NGOUBOU ROCH',      email: 'controleur@arpce.cg',    password: 'Arpce@2024!',  role: 'ARPCE',        operateur: null },
+    ];
+    for (const u of seedUsers) {
+      const [[exists]] = await conn.query('SELECT id FROM users WHERE id = ?', [u.id]);
+      if (!exists) {
+        const hash = await bcrypt.hash(u.password, BCRYPT_ROUNDS);
+        await conn.query(
+          'INSERT INTO users (id, nom, email, password, role, operateur) VALUES (?, ?, ?, ?, ?, ?)',
+          [u.id, u.nom, u.email, hash, u.role, u.operateur]
+        );
+      }
+    }
+
   } finally {
     conn.release();
   }
@@ -408,7 +507,7 @@ const normalizeReportRow = (row) => {
 /* ================= DÉTECTION DE COLONNES ================= */
 
 // Analyse un fichier CDR et retourne le mapping proposé + un aperçu
-app.post('/api/cdr/detect-columns', upload.single('file'), (req, res) => {
+app.post('/api/cdr/detect-columns', requireRole('AGENT_MTN', 'AGENT_AIRTEL'), upload.single('file'), (req, res) => {
   const file = req.file;
   if (!file) return res.status(400).json({ error: 'Fichier requis' });
 
@@ -538,7 +637,7 @@ const analyzeSim = (simNumber, lines, cdrId) => {
 
 /* ================= UPLOAD CDR ================= */
 
-app.post('/api/cdr/upload', upload.single('file'), async (req, res) => {
+app.post('/api/cdr/upload', requireRole('AGENT_MTN', 'AGENT_AIRTEL'), upload.single('file'), async (req, res) => {
   const file = req.file;
   const { agent_id, operateur = 'TOUS', mapping: mappingStr } = req.body;
 
@@ -653,7 +752,7 @@ app.post('/api/cdr/upload', upload.single('file'), async (req, res) => {
 
 /* ================= ANALYSES ================= */
 
-app.patch('/api/cdr/analyses/:id', async (req, res) => {
+app.patch('/api/cdr/analyses/:id', requireRole('ANALYSTE'), async (req, res) => {
   const { id } = req.params;
   const { statut, motif_refus, details_refus, justificatif_confirmation } = req.body;
 
@@ -699,7 +798,7 @@ app.patch('/api/cdr/analyses/:id', async (req, res) => {
 
 /* ================= RAPPORTS ================= */
 
-app.post('/api/rapports/envoyer-arpce', async (req, res) => {
+app.post('/api/rapports/envoyer-arpce', requireRole('AGENT_MTN', 'AGENT_AIRTEL'), async (req, res) => {
   const { operateur, analyste_nom = 'Analyste fraude', date_debut = null, date_fin = null } = req.body;
   const conn = await pool.getConnection();
 
@@ -759,7 +858,7 @@ app.post('/api/rapports/envoyer-arpce', async (req, res) => {
   }
 });
 
-app.post('/api/rapports/envoyer-agent', async (req, res) => {
+app.post('/api/rapports/envoyer-agent', requireRole('AGENT_MTN', 'AGENT_AIRTEL'), async (req, res) => {
   const { operateur, analyste_nom = 'Analyste fraude', date_debut = null, date_fin = null } = req.body;
   if (!['MTN', 'AIRTEL'].includes(operateur)) {
     return res.status(400).json({ error: 'Opérateur invalide' });
@@ -805,7 +904,7 @@ app.post('/api/rapports/envoyer-agent', async (req, res) => {
   }
 });
 
-app.post('/api/analyste/rapports/generer', async (req, res) => {
+app.post('/api/analyste/rapports/generer', requireRole('ANALYSTE'), async (req, res) => {
   const {
     operateur = 'TOUS',
     destinataire,
@@ -885,7 +984,7 @@ app.post('/api/analyste/rapports/generer', async (req, res) => {
   }
 });
 
-app.post('/api/rapports/:id/envoyer', async (req, res) => {
+app.post('/api/rapports/:id/envoyer', requireRole('ANALYSTE'), async (req, res) => {
   const { id } = req.params;
   const { analyste_nom } = req.body;
   const conn = await pool.getConnection();
@@ -932,7 +1031,7 @@ app.post('/api/rapports/:id/envoyer', async (req, res) => {
   }
 });
 
-app.patch('/api/rapports/:id/statut', async (req, res) => {
+app.patch('/api/rapports/:id/statut', requireRole('ARPCE'), async (req, res) => {
   const { id } = req.params;
   const { statut_rapport } = req.body;
   if (!REPORT_STATUSES.includes(statut_rapport)) {
@@ -958,7 +1057,7 @@ app.patch('/api/rapports/:id/statut', async (req, res) => {
 
 /* ================= GET ROUTES ================= */
 
-app.get('/api/cdr/files', async (_req, res) => {
+app.get('/api/cdr/files', requireRole('AGENT_MTN', 'AGENT_AIRTEL', 'ANALYSTE', 'ARPCE'), async (_req, res) => {
   const conn = await pool.getConnection();
   try {
     const [rows] = await conn.query(
@@ -1027,12 +1126,20 @@ app.get('/api/cdr/sim/:msisdn/historique', async (req, res) => {
   }
 });
 
-app.get('/api/cdr/analyses', async (_req, res) => {
+app.get('/api/cdr/analyses', async (req, res) => {
   const conn = await pool.getConnection();
   try {
-    const [rows] = await conn.query(
-      'SELECT * FROM sim_analyses ORDER BY date_analyse DESC'
-    );
+    const role = req.auditUser?.user_role;
+    let query = 'SELECT * FROM sim_analyses';
+    const params = [];
+    // Les agents ne voient que les données de leur opérateur
+    if (role === 'AGENT_MTN') {
+      query += ' WHERE operateur = ?'; params.push('MTN');
+    } else if (role === 'AGENT_AIRTEL') {
+      query += ' WHERE operateur = ?'; params.push('AIRTEL');
+    }
+    query += ' ORDER BY date_analyse DESC';
+    const [rows] = await conn.query(query, params);
     res.json(rows.map(r => ({
       ...r,
       criteres: typeof r.criteres === 'string' ? JSON.parse(r.criteres) : r.criteres,
@@ -1069,7 +1176,7 @@ app.get('/api/rapports', async (req, res) => {
       if (!REPORT_STATUSES.includes(statut_rapport)) return res.status(400).json({ error: 'Statut de rapport invalide' });
       query += ' AND statut_rapport = ?'; params.push(statut_rapport);
     }
-    query += ' ORDER BY date_envoi DESC';
+    query += ' ORDER BY date_envoi DESC LIMIT 200';
     const [rows] = await conn.query(query, params);
     res.json(rows.map(normalizeReportRow));
   } catch (err) {
@@ -1126,7 +1233,7 @@ app.get('/api/sanctions', async (_req, res) => {
 
 /* ================= ORDRES BLOCAGE ================= */
 
-app.patch('/api/ordres/:id/bloquer', async (req, res) => {
+app.patch('/api/ordres/:id/bloquer', requireRole('AGENT_MTN', 'AGENT_AIRTEL'), async (req, res) => {
   const conn = await pool.getConnection();
   try {
     await conn.query("UPDATE ordres_blocage SET statut = 'bloque' WHERE id = ?", [req.params.id]);
@@ -1146,7 +1253,7 @@ app.patch('/api/ordres/:id/bloquer', async (req, res) => {
   }
 });
 
-app.post('/api/ordres/bloquer', async (req, res) => {
+app.post('/api/ordres/bloquer', requireRole('ARPCE'), async (req, res) => {
   const { rapport_id, operateur, liste_sim, delai_heures = 48 } = req.body;
   const conn = await pool.getConnection();
   try {
@@ -1156,7 +1263,7 @@ app.post('/api/ordres/bloquer', async (req, res) => {
       'INSERT INTO ordres_blocage (id, rapport_id, operateur, liste_sim_json, delai_heures, date_limite) VALUES (?, ?, ?, ?, ?, ?)',
       [ordreId, rapport_id, operateur, JSON.stringify(liste_sim), delai_heures, dateLimite]
     );
-    if (rapport_id && rapport_id !== 'manual') {
+    if (rapport_id) {
       await conn.query(
         "UPDATE rapports SET statut_rapport='traite', statut_lu=TRUE WHERE id = ?",
         [rapport_id]
@@ -1179,7 +1286,7 @@ app.post('/api/ordres/bloquer', async (req, res) => {
 
 /* ================= SANCTIONS ================= */
 
-app.post('/api/sanctions/avertir', async (req, res) => {
+app.post('/api/sanctions/avertir', requireRole('ARPCE'), async (req, res) => {
   const { ordre_id, operateur } = req.body;
   const conn = await pool.getConnection();
   try {
@@ -1198,7 +1305,7 @@ app.post('/api/sanctions/avertir', async (req, res) => {
     );
     const sanctionType = existingAvertissement ? 'mise_en_demeure' : 'avertissement';
     const sanctionId = uuidv4();
-    const emailCible = operateur === 'MTN' ? 'agent_mtn@operateur.cg' : 'agent_airtel@operateur.cg';
+    const emailCible = operateur === 'MTN' ? 'agent.mtn@mtn.cg' : 'agent.airtel@airtel.cg';
     const logMessage = sanctionType === 'mise_en_demeure'
       ? `Mise en demeure émise le ${new Date().toISOString()} — Récidive : avertissement précédent ignoré`
       : `Avertissement envoyé le ${new Date().toISOString()} — SIM non bloquée dans le délai imparti`;
@@ -1206,7 +1313,17 @@ app.post('/api/sanctions/avertir', async (req, res) => {
       'INSERT INTO sanctions (id, ordre_blocage_id, operateur, type, email_envoye, log_details) VALUES (?, ?, ?, ?, ?, ?)',
       [sanctionId, ordre_id, operateur, sanctionType, emailCible, logMessage]
     );
-    console.log(`[SANCTION ${sanctionType.toUpperCase()}] Email → ${emailCible}`);
+    // Enregistrer l'email simulé pour affichage dans l'UI
+    const sujet = sanctionType === 'mise_en_demeure'
+      ? `[ARPCE] MISE EN DEMEURE — Non-conformité persistante opérateur ${operateur}`
+      : `[ARPCE] AVERTISSEMENT — SIM Box détectée non bloquée — ${operateur}`;
+    const corps = sanctionType === 'mise_en_demeure'
+      ? `Madame, Monsieur,\n\nMalgré l'avertissement précédemment adressé, les SIM Box identifiées n'ont pas été bloquées dans le délai réglementaire imparti.\n\nEn application des dispositions de la loi n°009-2009 sur les télécommunications au Congo, l'ARPCE vous adresse la présente mise en demeure.\n\nVous disposez de 72 heures pour vous conformer, sous peine de sanctions financières et/ou administratives.\n\nL'Autorité de Régulation des Postes et Communications Électroniques (ARPCE)\nDirection du Contrôle et de la Conformité`
+      : `Madame, Monsieur,\n\nNous avons détecté des SIM Box actives sur votre réseau ${operateur} lors de nos contrôles automatiques. Ces SIM Box n'ont pas été bloquées dans le délai réglementaire prescrit.\n\nConformément aux textes en vigueur, vous êtes formellement averti(e) de procéder au blocage immédiat de ces équipements frauduleux.\n\nToute récidive fera l'objet d'une mise en demeure.\n\nL'Autorité de Régulation des Postes et Communications Électroniques (ARPCE)`;
+    await conn.query(
+      'INSERT INTO emails_simules (id, sanction_id, destinataire, sujet, corps, operateur, type_sanction) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [uuidv4(), sanctionId, emailCible, sujet, corps, operateur, sanctionType]
+    );
     await logAudit(conn, {
       ...req.auditUser,
       action: 'EMETTRE_SANCTION',
@@ -1225,7 +1342,7 @@ app.post('/api/sanctions/avertir', async (req, res) => {
 /* ================= AGREGATION ================= */
 
 // Prévisualiser les données disponibles sur une période avant d'agréger
-app.get('/api/cdr/preview-agregation', async (req, res) => {
+app.get('/api/cdr/preview-agregation', requireRole('AGENT_MTN', 'AGENT_AIRTEL'), async (req, res) => {
   const { operateur, date_debut, date_fin } = req.query;
 
   if (!operateur || !date_debut || !date_fin) {
@@ -1261,7 +1378,7 @@ app.get('/api/cdr/preview-agregation', async (req, res) => {
 });
 
 // Lancer l'agrégation : regroupe toutes les lignes CDR sur la période et analyse par SIM
-app.post('/api/cdr/agreger', async (req, res) => {
+app.post('/api/cdr/agreger', requireRole('AGENT_MTN', 'AGENT_AIRTEL'), async (req, res) => {
   const { operateur, date_debut, date_fin, agent_id } = req.body;
 
   if (!operateur || !date_debut || !date_fin || !agent_id) {
@@ -1512,7 +1629,7 @@ const detecterSimbox = (lines) => {
 };
 
 // Lancer la détection simbox sur une période
-app.post('/api/cdr/detecter-simbox', async (req, res) => {
+app.post('/api/cdr/detecter-simbox', requireRole('AGENT_MTN', 'AGENT_AIRTEL'), async (req, res) => {
   const { operateur, date_debut, date_fin, agent_id } = req.body;
   if (!operateur || !date_debut || !date_fin || !agent_id) {
     return res.status(400).json({ error: 'operateur, date_debut, date_fin, agent_id requis' });
@@ -1625,7 +1742,7 @@ app.get('/api/simbox', async (req, res) => {
 });
 
 // Valider ou rejeter une simbox détectée
-app.patch('/api/simbox/:id', async (req, res) => {
+app.patch('/api/simbox/:id', requireRole('ANALYSTE'), async (req, res) => {
   const { id } = req.params;
   const { statut, motif_rejet } = req.body;
   const VALID = ['validee', 'rejetee'];
@@ -1654,7 +1771,7 @@ app.patch('/api/simbox/:id', async (req, res) => {
 
 /* ================= JOURNAL D'AUDIT ================= */
 
-app.get('/api/audit', async (req, res) => {
+app.get('/api/audit', requireRole('ARPCE'), async (req, res) => {
   const { action, user_role, operateur, date_debut, date_fin, limit = 100, offset = 0 } = req.query;
   const conn = await pool.getConnection();
   try {
@@ -1691,15 +1808,69 @@ app.get('/api/audit', async (req, res) => {
   }
 });
 
+/* ================= AUTHENTIFICATION ================= */
+
+app.post('/api/auth/login', async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email et mot de passe requis' });
+  }
+  const conn = await pool.getConnection();
+  try {
+    const [[row]] = await conn.query(
+      'SELECT id, nom, email, role, operateur, password AS hash FROM users WHERE email = ? AND actif = 1',
+      [email]
+    );
+    if (!row) return res.status(401).json({ error: 'Identifiants incorrects' });
+    const valid = await bcrypt.compare(password, row.hash);
+    if (!valid) return res.status(401).json({ error: 'Identifiants incorrects' });
+    const { hash: _h, ...user } = row;
+    const token = jwt.sign(
+      { id: user.id, nom: user.nom, role: user.role, operateur: user.operateur },
+      JWT_SECRET,
+      { expiresIn: JWT_EXPIRES }
+    );
+    res.json({ user, token });
+  } catch (err) {
+    console.error('[AUTH LOGIN ERROR]', err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  } finally {
+    conn.release();
+  }
+});
+
+/* ================= EMAILS SIMULES ================= */
+
+app.get('/api/emails', async (req, res) => {
+  const { operateur } = req.query;
+  const conn = await pool.getConnection();
+  try {
+    let query = 'SELECT * FROM emails_simules';
+    const params = [];
+    if (operateur && operateur !== 'TOUS') {
+      query += ' WHERE operateur = ?';
+      params.push(operateur);
+    }
+    query += ' ORDER BY date_envoi DESC LIMIT 50';
+    const [rows] = await conn.query(query, params);
+    res.json(rows);
+  } catch (err) {
+    console.error('[EMAILS GET ERROR]', err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  } finally {
+    conn.release();
+  }
+});
+
 /* ================= GESTION UTILISATEURS ================= */
 
 const VALID_ROLES = ['AGENT_MTN', 'AGENT_AIRTEL', 'ANALYSTE', 'ARPCE'];
 const VALID_OPERATEURS_USER = ['MTN', 'AIRTEL'];
 
-app.get('/api/users', async (_req, res) => {
+app.get('/api/users', requireRole('ARPCE'), async (_req, res) => {
   const conn = await pool.getConnection();
   try {
-    const [rows] = await conn.query('SELECT id, nom, email, role, operateur, created_at FROM users ORDER BY created_at ASC');
+    const [rows] = await conn.query('SELECT id, nom, email, role, operateur, date_creation FROM users ORDER BY date_creation ASC');
     res.json(rows);
   } catch (err) {
     console.error('[USERS GET ERROR]', err);
@@ -1709,7 +1880,7 @@ app.get('/api/users', async (_req, res) => {
   }
 });
 
-app.post('/api/users', async (req, res) => {
+app.post('/api/users', requireRole('ARPCE'), async (req, res) => {
   const { nom, email, role, operateur = null, password } = req.body;
   if (!nom || !email || !role || !password) {
     return res.status(400).json({ error: 'nom, email, role et password sont requis' });
@@ -1723,9 +1894,10 @@ app.post('/api/users', async (req, res) => {
   const conn = await pool.getConnection();
   try {
     const id = uuidv4();
+    const hashedPassword = await bcrypt.hash(password, BCRYPT_ROUNDS);
     await conn.query(
       'INSERT INTO users (id, nom, email, role, operateur, password) VALUES (?, ?, ?, ?, ?, ?)',
-      [id, nom, email, role, operateur || null, password]
+      [id, nom, email, role, operateur || null, hashedPassword]
     );
     await logAudit(conn, {
       ...req.auditUser,
@@ -1733,7 +1905,7 @@ app.post('/api/users', async (req, res) => {
       entite_type: 'user', entite_id: id,
       details: { nom, email, role },
     });
-    const [[user]] = await conn.query('SELECT id, nom, email, role, operateur, created_at FROM users WHERE id = ?', [id]);
+    const [[user]] = await conn.query('SELECT id, nom, email, role, operateur, date_creation FROM users WHERE id = ?', [id]);
     res.status(201).json(user);
   } catch (err) {
     if (err.code === 'ER_DUP_ENTRY') {
@@ -1746,7 +1918,7 @@ app.post('/api/users', async (req, res) => {
   }
 });
 
-app.patch('/api/users/:id', async (req, res) => {
+app.patch('/api/users/:id', requireRole('ARPCE'), async (req, res) => {
   const { id } = req.params;
   const { nom, email, role, operateur, password } = req.body;
   if (role && !VALID_ROLES.includes(role)) {
@@ -1763,11 +1935,11 @@ app.patch('/api/users/:id', async (req, res) => {
     if (email)    { fields.push('email = ?');    vals.push(email); }
     if (role)     { fields.push('role = ?');     vals.push(role); }
     if (operateur !== undefined) { fields.push('operateur = ?'); vals.push(operateur || null); }
-    if (password) { fields.push('password = ?'); vals.push(password); }
+    if (password) { fields.push('password = ?'); vals.push(await bcrypt.hash(password, BCRYPT_ROUNDS)); }
     if (fields.length === 0) return res.status(400).json({ error: 'Aucun champ à mettre à jour' });
     vals.push(id);
     await conn.query(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`, vals);
-    const [[user]] = await conn.query('SELECT id, nom, email, role, operateur, created_at FROM users WHERE id = ?', [id]);
+    const [[user]] = await conn.query('SELECT id, nom, email, role, operateur, date_creation FROM users WHERE id = ?', [id]);
     if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
     await logAudit(conn, {
       ...req.auditUser,
@@ -1787,7 +1959,7 @@ app.patch('/api/users/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/users/:id', async (req, res) => {
+app.delete('/api/users/:id', requireRole('ARPCE'), async (req, res) => {
   const { id } = req.params;
   const conn = await pool.getConnection();
   try {

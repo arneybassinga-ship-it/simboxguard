@@ -44,7 +44,7 @@ const ArpceBlocking = () => {
     try {
       await fetch(apiUrl('/api/ordres/bloquer'), {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ operateur, liste_sim: selected, delai_heures: delai, rapport_id: 'manual' }),
+        body: JSON.stringify({ operateur, liste_sim: selected, delai_heures: delai }),
       });
       showSuccess(`Ordre de blocage émis — ${selected.length} MSISDN`);
       setSelected([]); setModal(false); loadData();

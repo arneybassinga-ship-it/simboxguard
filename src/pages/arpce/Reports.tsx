@@ -160,7 +160,9 @@ const ArpceReports = () => {
                         Ref: <span className="font-bold text-slate-300">{r.reference_unique || r.contenu_json?.reference || 'N/A'}</span>
                       </span>
                       <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10">
-                        Statut: <span className="font-bold text-slate-300">{(r.statut_rapport || 'envoye').toUpperCase()}</span>
+                        Statut: <span className="font-bold text-slate-300">
+                          {{ brouillon: 'Brouillon', envoye: 'Envoyé', consulte: 'Consulté', traite: 'Traité' }[r.statut_rapport || 'envoye'] ?? 'Envoyé'}
+                        </span>
                       </span>
                     </div>
                   </div>

@@ -2,23 +2,37 @@ import { useEffect, useState } from 'react';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { AlertOctagon, AlertTriangle, CheckCircle, Download, ShieldX } from 'lucide-react';
+import { AlertOctagon, AlertTriangle, CheckCircle, Download, Mail, ShieldX } from 'lucide-react';
 import { showSuccess, showError } from '../../utils/toast';
 import { BlockingOrder, Sanction } from '../../types';
 import { generateRapportSanction } from '../../lib/generatePDF';
 import { apiUrl } from '../../lib/api';
 
+interface EmailSimule {
+  id: string;
+  sanction_id: string;
+  destinataire: string;
+  sujet: string;
+  corps: string;
+  operateur: string;
+  type_sanction: 'avertissement' | 'mise_en_demeure';
+  date_envoi: string;
+}
+
 const ArpceSanctions = () => {
   const [ordres, setOrdres]       = useState<BlockingOrder[]>([]);
   const [sanctions, setSanctions] = useState<Sanction[]>([]);
+  const [emails, setEmails]       = useState<EmailSimule[]>([]);
   const [loading, setLoading]     = useState(true);
   const [busy, setBusy]           = useState('');
+  const [emailOuvert, setEmailOuvert] = useState<string | null>(null);
 
   const loadData = () => {
     Promise.all([
       fetch(apiUrl('/api/ordres')).then(r => r.json()),
       fetch(apiUrl('/api/sanctions')).then(r => r.json()),
-    ]).then(([o, s]) => { setOrdres(o); setSanctions(s); })
+      fetch(apiUrl('/api/emails')).then(r => r.json()),
+    ]).then(([o, s, e]) => { setOrdres(o); setSanctions(s); setEmails(Array.isArray(e) ? e : []); })
       .catch(() => showError('Erreur chargement des données'))
       .finally(() => setLoading(false));
   };
@@ -187,7 +201,9 @@ const ArpceSanctions = () => {
                           ? <ShieldX size={12} className="text-red-500"/>
                           : <AlertOctagon size={12} className="text-orange-400"/>
                         }
-                        <span className="text-xs font-bold text-white">{s.operateur} — {s.type.replace('_', ' ')}</span>
+                        <span className="text-xs font-bold text-white">
+                          {s.operateur} — {s.type === 'mise_en_demeure' ? 'Mise en demeure' : 'Avertissement'}
+                        </span>
                       </div>
                       <p className="text-[10px] text-slate-500">{new Date(s.date_sanction).toLocaleString('fr-FR')}</p>
                       <p className="text-[11px] text-slate-400 mt-1 truncate">{s.log_details}</p>
@@ -214,6 +230,57 @@ const ArpceSanctions = () => {
           )}
         </CardContent>
       </Card>
+      {/* Boîte d'envoi simulée */}
+      <Card className="bg-white/5 border-white/10 mt-5">
+        <CardHeader>
+          <CardTitle className="text-white text-sm flex items-center gap-2">
+            <Mail size={14} className="text-blue-400" />
+            Boîte d'envoi — Notifications automatiques aux opérateurs
+            <span className="ml-auto text-[10px] font-normal px-2 py-0.5 rounded bg-blue-500/10 border border-blue-500/20 text-blue-400">
+              SIMULATION
+            </span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <p className="text-slate-400 text-sm">Chargement...</p>
+          ) : emails.length === 0 ? (
+            <p className="text-slate-400 text-sm text-center py-6">Aucun email envoyé pour l'instant.</p>
+          ) : (
+            <div className="space-y-2">
+              {emails.map(email => {
+                const isMED = email.type_sanction === 'mise_en_demeure';
+                const ouvert = emailOuvert === email.id;
+                return (
+                  <div key={email.id} className={`border rounded-xl overflow-hidden transition-all ${isMED ? 'border-red-500/30 bg-red-500/5' : 'border-orange-500/30 bg-orange-500/5'}`}>
+                    <button
+                      onClick={() => setEmailOuvert(ouvert ? null : email.id)}
+                      className="w-full flex items-center gap-3 p-3 text-left"
+                    >
+                      <Mail size={13} className={isMED ? 'text-red-400 shrink-0' : 'text-orange-400 shrink-0'} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-white truncate">{email.sujet}</p>
+                        <p className="text-[10px] text-slate-400">À : {email.destinataire} · {new Date(email.date_envoi).toLocaleString('fr-FR')}</p>
+                      </div>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded border shrink-0 ${isMED ? 'bg-red-500/20 border-red-500/30 text-red-400' : 'bg-orange-500/20 border-orange-500/30 text-orange-400'}`}>
+                        {isMED ? 'MISE EN DEMEURE' : 'AVERTISSEMENT'}
+                      </span>
+                    </button>
+                    {ouvert && (
+                      <div className="px-4 pb-4">
+                        <div className="bg-black/20 rounded-lg p-3 border border-white/10">
+                          <p className="text-[11px] text-slate-300 whitespace-pre-wrap leading-relaxed">{email.corps}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
     </DashboardLayout>
   );
 };

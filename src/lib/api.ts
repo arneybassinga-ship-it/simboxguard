@@ -4,28 +4,31 @@ export const API_BASE_URL =
 export const apiUrl = (path: string) =>
   `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
 
-const getUserHeaders = (): Record<string, string> => {
-  try {
-    const raw = localStorage.getItem('currentUser');
-    if (!raw) return {};
-    const u = JSON.parse(raw);
-    return {
-      'X-User-Id':   u.id   || 'inconnu',
-      'X-User-Nom':  u.nom  || 'inconnu',
-      'X-User-Role': u.role || 'inconnu',
-    };
-  } catch {
-    return {};
-  }
+export const getToken = (): string | null => localStorage.getItem('authToken');
+export const setToken = (token: string) => localStorage.setItem('authToken', token);
+export const clearToken = () => localStorage.removeItem('authToken');
+
+const getHeaders = (): Record<string, string> => {
+  const token = getToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
-export const apiFetch = (input: string, init: RequestInit = {}): Promise<Response> => {
-  const userHeaders = getUserHeaders();
-  return fetch(apiUrl(input), {
+export const apiFetch = async (input: string, init: RequestInit = {}): Promise<Response> => {
+  const res = await fetch(apiUrl(input), {
     ...init,
     headers: {
-      ...userHeaders,
+      ...getHeaders(),
       ...(init.headers || {}),
     },
   });
+  // Token expiré ou invalide → déconnexion automatique
+  if (res.status === 403 || res.status === 401) {
+    const data = await res.clone().json().catch(() => ({}));
+    if (data?.error?.includes('Accès refusé') || data?.error?.includes('token')) {
+      clearToken();
+      localStorage.removeItem('currentUser');
+      window.location.href = '/';
+    }
+  }
+  return res;
 };

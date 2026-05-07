@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShieldAlert, Mail, Lock, KeyRound, ArrowRight } from 'lucide-react';
-import { MOCK_USERS } from '../store/mockData';
+import { ShieldAlert, Mail, Lock, KeyRound, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { showSuccess, showError } from '../utils/toast';
+import { apiUrl, setToken } from '../lib/api';
+import { User } from '../types';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -11,51 +12,75 @@ const Index = () => {
   const [password, setPassword] = useState('');
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isReturningUser, setIsReturningUser] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const pendingUser = useRef<User | null>(null);
+  const isReturningUser = localStorage.getItem('hasVisitedBefore') === 'true';
 
   useEffect(() => {
-    setIsReturningUser(!!localStorage.getItem('currentUser'));
-  }, []);
+    const stored = localStorage.getItem('currentUser');
+    if (stored) {
+      try {
+        const user = JSON.parse(stored);
+        if (user.role?.startsWith('AGENT')) navigate('/agent/dashboard');
+        else if (user.role === 'ANALYSTE') navigate('/analyste/dashboard');
+        else navigate('/arpce/dashboard');
+      } catch {
+        localStorage.removeItem('currentUser');
+      }
+      return;
+    }
+    localStorage.setItem('hasVisitedBefore', 'true');
+  }, [navigate]);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const redirectUser = (user: User) => {
+    if (user.role.startsWith('AGENT')) navigate('/agent/dashboard');
+    else if (user.role === 'ANALYSTE') navigate('/analyste/dashboard');
+    else navigate('/arpce/dashboard');
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-
-    const user = MOCK_USERS.find(u => u.email === email && u.password === password);
-
-    setTimeout(() => {
-      if (user) {
-        setStep('otp');
-        showSuccess("Code OTP envoyé (Simulé: 123456)");
-      } else {
-        showError("Identifiants incorrects");
+    try {
+      const resp = await fetch(apiUrl('/api/auth/login'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        showError(data.error || 'Identifiants incorrects');
+        return;
       }
+      pendingUser.current = data.user as User;
+      setToken(data.token);
+      setStep('otp');
+      showSuccess('Code OTP envoyé (Simulé : 123456)');
+    } catch {
+      showError('Impossible de contacter le serveur');
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
   const handleVerifyOtp = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-
     setTimeout(() => {
       if (otp === '123456') {
-        const user = MOCK_USERS.find(u => u.email === email);
+        const user = pendingUser.current;
         if (user) {
           localStorage.setItem('currentUser', JSON.stringify(user));
           showSuccess(`Bienvenue, ${user.nom}`);
-          if (user.role.startsWith('AGENT')) navigate('/agent/dashboard');
-          else if (user.role === 'ANALYSTE') navigate('/analyste/dashboard');
-          else navigate('/arpce/dashboard');
+          redirectUser(user);
         }
       } else {
-        showError("Code OTP invalide");
+        showError('Code OTP invalide');
       }
       setLoading(false);
-    }, 1000);
+    }, 800);
   };
 
-  // Style d'input ultra-précis pour contrer les styles par défaut du navigateur
   const inputStyle = {
     WebkitTextFillColor: 'white',
     WebkitBoxShadow: '0 0 0px 1000px transparent inset',
@@ -64,13 +89,12 @@ const Index = () => {
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-[#020617] overflow-hidden relative">
-      {/* Background Glows */}
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-600/10 rounded-full blur-[120px]" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-indigo-600/10 rounded-full blur-[120px]" />
 
       <div className="container max-w-5xl h-[650px] flex items-center justify-center p-4 z-10">
         <div className="w-full h-full flex flex-col md:flex-row bg-[#0f172a]/40 backdrop-blur-3xl border border-white/10 rounded-[48px] overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.5)]">
-          
+
           {/* Left Side - Form */}
           <div className="flex-1 p-16 flex flex-col justify-center">
             <div className="mb-12">
@@ -84,9 +108,9 @@ const Index = () => {
                 {step === 'otp' ? 'Vérification' : isReturningUser ? 'Ravi de vous revoir' : 'Bienvenue'}
               </h1>
               <p className="text-slate-400 text-sm font-medium">
-                {step === 'login' 
-                  ? "Veuillez entrer vos identifiants pour continuer." 
-                  : "Un code de sécurité a été envoyé à votre adresse."}
+                {step === 'login'
+                  ? 'Veuillez entrer vos identifiants pour continuer.'
+                  : 'Un code de sécurité a été envoyé à votre adresse.'}
               </p>
             </div>
 
@@ -96,8 +120,8 @@ const Index = () => {
                   <div className="relative group">
                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1 mb-2 block">Email Professionnel</label>
                     <div className="flex items-center border-b border-slate-800 group-focus-within:border-blue-500 transition-all duration-500 py-2">
-                      <input 
-                        type="email" 
+                      <input
+                        type="email"
                         style={inputStyle}
                         className="bg-transparent border-none outline-none text-white w-full px-1 py-1 text-base placeholder:text-slate-700 appearance-none"
                         placeholder="nom@operateur.cg"
@@ -113,8 +137,8 @@ const Index = () => {
                   <div className="relative group">
                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1 mb-2 block">Mot de passe</label>
                     <div className="flex items-center border-b border-slate-800 group-focus-within:border-blue-500 transition-all duration-500 py-2">
-                      <input 
-                        type="password" 
+                      <input
+                        type={showPassword ? 'text' : 'password'}
                         style={inputStyle}
                         className="bg-transparent border-none outline-none text-white w-full px-1 py-1 text-base placeholder:text-slate-700 appearance-none"
                         placeholder="••••••••"
@@ -122,17 +146,24 @@ const Index = () => {
                         onChange={(e) => setPassword(e.target.value)}
                         required
                       />
-                      <Lock className="text-slate-600 group-focus-within:text-blue-400 w-5 h-5 transition-colors" />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(v => !v)}
+                        className="text-slate-600 hover:text-blue-400 transition-colors ml-2 focus:outline-none"
+                        tabIndex={-1}
+                      >
+                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      </button>
                     </div>
                   </div>
                 </div>
 
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   disabled={loading}
                   className="w-full py-5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-bold rounded-2xl shadow-xl shadow-blue-900/20 transition-all active:scale-[0.98] flex items-center justify-center gap-3 mt-6 group"
                 >
-                  {loading ? "Authentification..." : "Se connecter"}
+                  {loading ? 'Authentification...' : 'Se connecter'}
                   {!loading && <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />}
                 </button>
               </form>
@@ -141,8 +172,8 @@ const Index = () => {
                 <div className="relative group">
                   <label className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] ml-1 mb-2 block">Code de sécurité (OTP)</label>
                   <div className="flex items-center border-b border-slate-800 group-focus-within:border-blue-500 transition-all duration-500 py-2">
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       style={inputStyle}
                       className="bg-transparent border-none outline-none text-white w-full px-1 py-2 text-center tracking-[1.2em] font-bold text-2xl placeholder:text-slate-800 appearance-none"
                       placeholder="000000"
@@ -156,16 +187,16 @@ const Index = () => {
                 </div>
 
                 <div className="space-y-4">
-                  <button 
-                    type="submit" 
+                  <button
+                    type="submit"
                     disabled={loading}
                     className="w-full py-5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-bold rounded-2xl shadow-xl shadow-blue-900/20 transition-all active:scale-[0.98]"
                   >
-                    {loading ? "Vérification..." : "Confirmer le code"}
+                    {loading ? 'Vérification...' : 'Confirmer le code'}
                   </button>
-                  <button 
+                  <button
                     type="button"
-                    onClick={() => setStep('login')}
+                    onClick={() => { setStep('login'); setOtp(''); pendingUser.current = null; }}
                     className="w-full py-2 text-slate-500 hover:text-blue-400 text-xs font-bold uppercase tracking-widest transition-colors"
                   >
                     Retour
@@ -184,9 +215,7 @@ const Index = () => {
           {/* Right Side - Visual */}
           <div className="hidden md:flex flex-1 p-8">
             <div className="w-full h-full bg-gradient-to-br from-slate-900 to-[#020617] rounded-[40px] relative overflow-hidden flex items-center justify-center border border-white/5 shadow-inner">
-              {/* Glow */}
               <div className="absolute w-80 h-80 bg-blue-500/10 rounded-full blur-[100px]" />
-              
               <div className="relative z-10 flex flex-col items-center text-center p-12">
                 <div className="relative mb-10">
                   <div className="absolute inset-0 bg-blue-500/20 blur-2xl rounded-full" />
@@ -199,8 +228,6 @@ const Index = () => {
                   Détection avancée des fraudes télécoms par analyse comportementale des flux CDR en temps réel.
                 </p>
               </div>
-
-              {/* Decorative elements */}
               <div className="absolute top-0 left-0 w-full h-full opacity-20 pointer-events-none">
                 <div className="absolute top-10 left-10 w-1 h-1 bg-white rounded-full" />
                 <div className="absolute top-20 right-20 w-1 h-1 bg-blue-400 rounded-full" />

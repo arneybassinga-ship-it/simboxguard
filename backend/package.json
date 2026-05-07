@@ -9,9 +9,11 @@
     "reset:demo": "echo 'Demo data removed'"
   },
   "dependencies": {
+    "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
     "dotenv": "^16.6.1",
     "express": "^4.22.1",
+    "jsonwebtoken": "^9.0.3",
     "multer": "^1.4.5-lts.1",
     "mysql2": "^3.20.0",
     "uuid": "^9.0.1",

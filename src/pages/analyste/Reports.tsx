@@ -15,9 +15,9 @@ type ReportTab = 'brouillons' | 'arpce' | 'operateurs';
 
 const STATUS_CONFIG: Record<ReportStatus, { label: string; className: string; icon: typeof Clock3 }> = {
   brouillon: { label: 'Brouillon', className: 'bg-slate-500/10 text-slate-300 border-slate-500/20', icon: Clock3 },
-  envoye: { label: 'Envoye', className: 'bg-blue-500/10 text-blue-300 border-blue-500/20', icon: Send },
-  consulte: { label: 'Consulte', className: 'bg-amber-500/10 text-amber-300 border-amber-500/20', icon: Eye },
-  traite: { label: 'Traite', className: 'bg-green-500/10 text-green-300 border-green-500/20', icon: CheckCircle2 },
+  envoye: { label: 'Envoyé', className: 'bg-blue-500/10 text-blue-300 border-blue-500/20', icon: Send },
+  consulte: { label: 'Consulté', className: 'bg-amber-500/10 text-amber-300 border-amber-500/20', icon: Eye },
+  traite: { label: 'Traité', className: 'bg-green-500/10 text-green-300 border-green-500/20', icon: CheckCircle2 },
 };
 
 const DESTINATION_OPTIONS: { value: ReportDestination; label: string }[] = [
@@ -109,7 +109,7 @@ const Reports = () => {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Erreur envoi rapport');
       setReports(prev => prev.map(item => item.id === report.id ? data : item));
-      showSuccess(`Rapport ${data.reference_unique || data.contenu_json?.reference} envoye`);
+      showSuccess(`Rapport ${data.reference_unique || data.contenu_json?.reference} envoyé ✓`);
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Erreur envoi rapport');
     } finally {
@@ -192,8 +192,8 @@ const Reports = () => {
         <div className="flex flex-wrap gap-2">
           {[
             { id: 'brouillons', label: 'Brouillons', count: counts.brouillons },
-            { id: 'arpce', label: 'Envoyes a l\'ARPCE', count: counts.arpce },
-            { id: 'operateurs', label: 'Envoyes aux operateurs', count: counts.operateurs },
+            { id: 'arpce', label: "Envoyés à l'ARPCE", count: counts.arpce },
+            { id: 'operateurs', label: 'Envoyés aux opérateurs', count: counts.operateurs },
           ].map(item => (
             <button
               key={item.id}
@@ -240,7 +240,12 @@ const Reports = () => {
                           Ref: <span className="font-bold text-white">{reference}</span>
                         </span>
                         <span className="px-2 py-1 rounded border border-white/10 bg-white/5 text-slate-300">
-                          Destination: <span className="font-bold text-white">{report.destinataire_role.toUpperCase()}</span>
+                          Destination: <span className="font-bold text-white">
+                            {report.destinataire_role === 'arpce' ? 'ARPCE'
+                              : report.destinataire_role === 'agent_mtn' ? 'Agent MTN'
+                              : report.destinataire_role === 'agent_airtel' ? 'Agent Airtel'
+                              : report.destinataire_role}
+                          </span>
                         </span>
                         <span className={cn('px-2 py-1 rounded border flex items-center gap-1', status.className)}>
                           <StatusIcon size={11} /> {status.label}
@@ -266,7 +271,7 @@ const Reports = () => {
                       <p className="text-slate-500 uppercase tracking-wider text-[10px] font-bold mb-1">Signature</p>
                       <p className="text-slate-200">{report.analyste_nom || report.contenu_json.signature?.analyste_nom || user.nom}</p>
                       <p className="text-slate-500 mt-1">
-                        {signatureDate ? new Date(signatureDate).toLocaleString('fr-FR') : 'Non envoye'}
+                        {signatureDate ? new Date(signatureDate).toLocaleString('fr-FR') : 'Non envoyé'}
                       </p>
                     </div>
                   </div>
