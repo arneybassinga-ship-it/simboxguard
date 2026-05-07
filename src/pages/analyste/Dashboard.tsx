@@ -6,14 +6,14 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { ShieldAlert, CheckCircle, XCircle, Clock, TrendingUp } from 'lucide-react';
 import { showError } from '../../utils/toast';
 import { SimAnalysis } from '../../types';
-import { apiUrl } from '../../lib/api';
+import { apiFetch } from '../../lib/api';
 
 const AnalysteDashboard = () => {
   const [analyses, setAnalyses] = useState<SimAnalysis[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(apiUrl('/api/cdr/analyses'))
+    apiFetch('/api/cdr/analyses')
       .then(r => r.json()).then(setAnalyses)
       .catch(() => showError('Erreur chargement'))
       .finally(() => setLoading(false));

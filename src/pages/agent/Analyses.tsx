@@ -6,7 +6,7 @@ import { FileText } from 'lucide-react';
 import { showError } from '../../utils/toast';
 import { User, SimAnalysis } from '../../types';
 import { cn } from '@/lib/utils';
-import { apiUrl } from '../../lib/api';
+import { apiFetch } from '../../lib/api';
 
 const AgentAnalyses = () => {
   const user = JSON.parse(localStorage.getItem('currentUser') || '{}') as User;
@@ -15,7 +15,7 @@ const AgentAnalyses = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(apiUrl('/api/cdr/analyses'))
+    apiFetch('/api/cdr/analyses')
       .then(r => r.json())
       .then((data: SimAnalysis[]) => {
         // l'agent ne voit que ses propres MSISDN (filtrées par opérateur)

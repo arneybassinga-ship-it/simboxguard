@@ -9,7 +9,7 @@ import {
 import { showSuccess, showError } from '../../utils/toast';
 import { User } from '../../types';
 import { cn } from '@/lib/utils';
-import { apiUrl } from '../../lib/api';
+import { apiFetch } from '../../lib/api';
 
 interface DetectResult {
   mapping: Record<string, string>;
@@ -64,7 +64,7 @@ const ImportCDR = () => {
     const fd = new FormData();
     fd.append('file', file);
     try {
-      const r = await fetch(apiUrl('/api/cdr/detect-columns'), { method: 'POST', body: fd });
+      const r = await apiFetch('/api/cdr/detect-columns', { method: 'POST', body: fd });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || 'Erreur détection colonnes');
       setDetected(data);
@@ -96,7 +96,7 @@ const ImportCDR = () => {
     if (user.operateur) fd.append('operateur', user.operateur);
     fd.append('mapping', JSON.stringify(mapping));
     try {
-      const r = await fetch(apiUrl('/api/cdr/upload'), { method: 'POST', body: fd });
+      const r = await apiFetch('/api/cdr/upload', { method: 'POST', body: fd });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || 'Erreur importation');
       setResult(data);

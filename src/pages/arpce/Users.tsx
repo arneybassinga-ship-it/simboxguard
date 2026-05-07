@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Users, UserPlus, Pencil, Trash2, X, Check } from 'lucide-react';
 import { showSuccess, showError } from '../../utils/toast';
-import { apiUrl } from '../../lib/api';
+import { apiFetch } from '../../lib/api';
 
 type Role = 'AGENT_MTN' | 'AGENT_AIRTEL' | 'ANALYSTE' | 'ARPCE';
 type Operateur = 'MTN' | 'AIRTEL' | '';
@@ -48,7 +48,7 @@ const ArpceUsers = () => {
 
   const load = () => {
     setLoading(true);
-    fetch(apiUrl('/api/users'))
+    apiFetch('/api/users')
       .then(r => r.json())
       .then(setUsers)
       .catch(() => showError('Erreur chargement des utilisateurs'))
@@ -102,7 +102,7 @@ const ArpceUsers = () => {
   const handleDelete = async (id: string) => {
     setBusy(true);
     try {
-      const resp = await fetch(apiUrl(`/api/users/${id}`), { method: 'DELETE' });
+      const resp = await apiFetch(`/api/users/${id}`, { method: 'DELETE' });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error);
       showSuccess('Utilisateur supprimé ✓');

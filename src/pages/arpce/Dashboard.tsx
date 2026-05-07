@@ -6,7 +6,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { ShieldAlert, Clock, CheckCircle, AlertTriangle, FileText } from 'lucide-react';
 import { showError } from '../../utils/toast';
 import { SimAnalysis, BlockingOrder, Sanction } from '../../types';
-import { apiUrl } from '../../lib/api';
+import { apiFetch } from '../../lib/api';
 
 const ARPCEDashboard = () => {
   const [analyses, setAnalyses] = useState<SimAnalysis[]>([]);
@@ -16,9 +16,9 @@ const ARPCEDashboard = () => {
 
   useEffect(() => {
     Promise.all([
-      fetch(apiUrl('/api/cdr/analyses')).then(r => r.json()),
-      fetch(apiUrl('/api/ordres')).then(r => r.json()),
-      fetch(apiUrl('/api/sanctions')).then(r => r.json()),
+      apiFetch('/api/cdr/analyses').then(r => r.json()),
+      apiFetch('/api/ordres').then(r => r.json()),
+      apiFetch('/api/sanctions').then(r => r.json()),
     ]).then(([a, o, s]) => {
       setAnalyses(a); setOrdres(o); setSanctions(s);
     }).catch(() => showError('Erreur chargement'))

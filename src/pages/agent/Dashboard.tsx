@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { showError } from '../../utils/toast';
 import { SimboxDetection } from '../../types';
-import { apiUrl } from '../../lib/api';
+import { apiFetch } from '../../lib/api';
 
 interface FichierCDR {
   id: string;
@@ -85,9 +85,9 @@ const AgentDashboard = () => {
 
   useEffect(() => {
     Promise.all([
-      fetch(apiUrl('/api/cdr/files')).then(r => r.json()),
-      fetch(apiUrl('/api/cdr/analyses')).then(r => r.json()),
-      fetch(apiUrl('/api/simbox')).then(r => r.json()),
+      apiFetch('/api/cdr/files').then(r => r.json()),
+      apiFetch('/api/cdr/analyses').then(r => r.json()),
+      apiFetch('/api/simbox').then(r => r.json()),
     ])
       .then(([f, a, s]) => {
         setFichiers(f.filter((x: FichierCDR) => x.operateur === operateur));

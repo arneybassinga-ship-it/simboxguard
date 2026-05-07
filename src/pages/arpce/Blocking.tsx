@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ShieldAlert, Clock, CheckCircle, AlertTriangle } from 'lucide-react';
 import { showSuccess, showError } from '../../utils/toast';
-import { apiUrl } from '../../lib/api';
+import { apiFetch } from '../../lib/api';
 
 interface SimAnalysis {
   id: string; numero_sim: string; operateur: string; score_suspicion: number; statut: string;
@@ -28,8 +28,8 @@ const ArpceBlocking = () => {
 
   const loadData = () => {
     Promise.all([
-      fetch(apiUrl('/api/cdr/analyses')).then(r => r.json()),
-      fetch(apiUrl('/api/ordres')).then(r => r.json()),
+      apiFetch('/api/cdr/analyses').then(r => r.json()),
+      apiFetch('/api/ordres').then(r => r.json()),
     ]).then(([a, o]) => {
       setSims(a.filter((x: SimAnalysis) => x.statut === 'confirmee'));
       setOrdres(o);
@@ -42,7 +42,7 @@ const ArpceBlocking = () => {
     if (selected.length === 0) return showError('Sélectionnez au moins une MSISDN');
     setBusy(true);
     try {
-      await fetch(apiUrl('/api/ordres/bloquer'), {
+      await apiFetch('/api/ordres/bloquer', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ operateur, liste_sim: selected, delai_heures: delai }),
       });

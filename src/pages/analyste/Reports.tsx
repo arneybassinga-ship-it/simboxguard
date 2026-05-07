@@ -7,7 +7,7 @@ import { FileText, Loader2, Send, Download, Clock3, CheckCircle2, Eye } from 'lu
 import { showError, showSuccess } from '../../utils/toast';
 import { AnalystReport, ReportDestination, ReportStatus, User } from '../../types';
 import { generateRapportAnalyseCDR, generateRapportSimbox } from '../../lib/generatePDF';
-import { apiUrl } from '../../lib/api';
+import { apiFetch } from '../../lib/api';
 import { DateRangePicker } from '../../components/ui/DateRangePicker';
 import { Label } from '@/components/ui/label';
 
@@ -43,7 +43,7 @@ const Reports = () => {
 
   const loadReports = () => {
     setLoading(true);
-    fetch(apiUrl('/api/rapports?expediteur_role=analyste_fraude'))
+    apiFetch('/api/rapports?expediteur_role=analyste_fraude')
       .then(r => r.json())
       .then(setReports)
       .catch(() => showError('Erreur chargement rapports analyste'))
@@ -75,7 +75,7 @@ const Reports = () => {
 
     setCreating(true);
     try {
-      const response = await fetch(apiUrl('/api/analyste/rapports/generer'), {
+      const response = await apiFetch('/api/analyste/rapports/generer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -101,7 +101,7 @@ const Reports = () => {
   const handleSend = async (report: AnalystReport) => {
     setSendingId(report.id);
     try {
-      const response = await fetch(apiUrl(`/api/rapports/${report.id}/envoyer`), {
+      const response = await apiFetch(`/api/rapports/${report.id}/envoyer`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ analyste_nom: user.nom }),

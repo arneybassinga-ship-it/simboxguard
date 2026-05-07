@@ -6,7 +6,7 @@ import { AlertOctagon, AlertTriangle, CheckCircle, Download, Mail, ShieldX } fro
 import { showSuccess, showError } from '../../utils/toast';
 import { BlockingOrder, Sanction } from '../../types';
 import { generateRapportSanction } from '../../lib/generatePDF';
-import { apiUrl } from '../../lib/api';
+import { apiFetch } from '../../lib/api';
 
 interface EmailSimule {
   id: string;
@@ -29,9 +29,9 @@ const ArpceSanctions = () => {
 
   const loadData = () => {
     Promise.all([
-      fetch(apiUrl('/api/ordres')).then(r => r.json()),
-      fetch(apiUrl('/api/sanctions')).then(r => r.json()),
-      fetch(apiUrl('/api/emails')).then(r => r.json()),
+      apiFetch('/api/ordres').then(r => r.json()),
+      apiFetch('/api/sanctions').then(r => r.json()),
+      apiFetch('/api/emails').then(r => r.json()),
     ]).then(([o, s, e]) => { setOrdres(o); setSanctions(s); setEmails(Array.isArray(e) ? e : []); })
       .catch(() => showError('Erreur chargement des données'))
       .finally(() => setLoading(false));
@@ -48,7 +48,7 @@ const ArpceSanctions = () => {
   const envoyer = async (ordre: BlockingOrder) => {
     setBusy(ordre.id);
     try {
-      const resp = await fetch(apiUrl('/api/sanctions/avertir'), {
+      const resp = await apiFetch('/api/sanctions/avertir', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ordre_id: ordre.id, operateur: ordre.operateur }),
       });

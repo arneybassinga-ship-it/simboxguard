@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import { FileText, ShieldAlert, Download } from 'lucide-react';
 import { showSuccess, showError } from '../../utils/toast';
 import { generateRapportSimbox } from '../../lib/generatePDF';
-import { apiUrl } from '../../lib/api';
+import { apiFetch } from '../../lib/api';
 
 interface RapportSim {
   id: string;
@@ -50,7 +50,7 @@ const ArpceReports = () => {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    fetch(apiUrl('/api/rapports?role=arpce'))
+    apiFetch('/api/rapports?role=arpce')
       .then(r => r.json())
       .then(setRapports)
       .catch(() => showError('Erreur chargement rapports'))
@@ -67,7 +67,7 @@ const ArpceReports = () => {
     try {
       const sims = getRapportSims(modalBlocage).map((s) => s.numero_sim);
       if (sims.length === 0) throw new Error('Aucune MSISDN à bloquer dans ce rapport');
-      const resp = await fetch(apiUrl('/api/ordres/bloquer'), {
+      const resp = await apiFetch('/api/ordres/bloquer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

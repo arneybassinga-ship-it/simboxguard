@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { showSuccess, showError } from '../../utils/toast';
 import { User } from '../../types';
-import { apiUrl } from '../../lib/api';
+import { apiFetch } from '../../lib/api';
 import { DateRangePicker } from '../../components/ui/DateRangePicker';
 
 interface PreviewData {
@@ -65,7 +65,7 @@ const AgregationCDR = () => {
     setLoading(true);
     setResult(null);
     try {
-      const r = await fetch(apiUrl('/api/cdr/agreger'), {
+      const r = await apiFetch('/api/cdr/agreger', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -6,7 +6,7 @@ import { CheckCircle, XCircle, Users, Filter, ChevronDown, ChevronUp } from 'luc
 import { showSuccess, showError } from '../../utils/toast';
 import { SimboxDetection } from '../../types';
 import { cn } from '@/lib/utils';
-import { apiUrl } from '../../lib/api';
+import { apiFetch } from '../../lib/api';
 
 const NIVEAU_CONFIG = {
   confirme: { label: 'Confirmé', bg: 'bg-red-500/10', border: 'border-red-500/30', text: 'text-red-400' },
@@ -151,7 +151,7 @@ const SimboxValidation = () => {
 
   const load = () => {
     setLoading(true);
-    fetch(apiUrl('/api/simbox'))
+    apiFetch('/api/simbox')
       .then(async (r) => {
         const data = await r.json().catch(() => null);
         if (!r.ok) {
@@ -172,7 +172,7 @@ const SimboxValidation = () => {
   const handleValider = async (id: string) => {
     setBusy(true);
     try {
-      const r = await fetch(apiUrl(`/api/simbox/${id}`), {
+      const r = await apiFetch(`/api/simbox/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ statut: 'validee' }),
@@ -189,7 +189,7 @@ const SimboxValidation = () => {
     setBusy(true);
     const motifFinal = motif === 'Autre (préciser)' ? details || motif : motif;
     try {
-      const r = await fetch(apiUrl(`/api/simbox/${modalRejet.id}`), {
+      const r = await apiFetch(`/api/simbox/${modalRejet.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ statut: 'rejetee', motif_rejet: motifFinal }),

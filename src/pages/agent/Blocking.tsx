@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ShieldAlert, Clock, CheckCircle, AlertTriangle } from 'lucide-react';
 import { showSuccess, showError } from '../../utils/toast';
-import { apiUrl } from '../../lib/api';
+import { apiFetch } from '../../lib/api';
 
 interface Ordre {
   id: string; operateur: string; liste_sim_json: string[];
@@ -23,7 +23,7 @@ const AgentBlocking = () => {
 
   useEffect(() => {
     setLoading(true);
-    fetch(apiUrl('/api/ordres'))
+    apiFetch('/api/ordres')
       .then(r => r.json())
       .then(data => setOrdres(data.filter((o: Ordre) => o.operateur === operateur)))
       .finally(() => setLoading(false));
@@ -32,7 +32,7 @@ const AgentBlocking = () => {
   const marquerBloque = async (id: string) => {
     setBusy(id);
     try {
-      await fetch(apiUrl(`/api/ordres/${id}/bloquer`), { method: 'PATCH' });
+      await apiFetch(`/api/ordres/${id}/bloquer`, { method: 'PATCH' });
       showSuccess('MSISDN marquée comme bloquée ✓');
       setRefreshKey(key => key + 1);
     } catch { showError('Erreur'); }

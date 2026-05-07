@@ -9,7 +9,7 @@ import {
 import { showSuccess, showError } from '../../utils/toast';
 import { User } from '../../types';
 import { cn } from '@/lib/utils';
-import { apiUrl } from '../../lib/api';
+import { apiFetch } from '../../lib/api';
 import { DateRangePicker } from '../../components/ui/DateRangePicker';
 
 interface GroupeSimbox {
@@ -148,7 +148,7 @@ const SimboxDetection = () => {
     setLoading(true);
     setResult(null);
     try {
-      const r = await fetch(apiUrl('/api/cdr/detecter-simbox'), {
+      const r = await apiFetch('/api/cdr/detecter-simbox', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ operateur, date_debut: dateDeb, date_fin: dateFin, agent_id: user.id }),

@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { cn } from '@/lib/utils';
 import { CheckCircle, XCircle, Clock } from 'lucide-react';
 import type { SimAnalysis } from '../../types';
-import { apiUrl } from '../../lib/api';
+import { apiFetch } from '../../lib/api';
 import { showError } from '../../utils/toast';
 
 const History = () => {
@@ -14,7 +14,7 @@ const History = () => {
   const [filtre, setFiltre] = useState('tous');
 
   useEffect(() => {
-    fetch(apiUrl('/api/cdr/analyses'))
+    apiFetch('/api/cdr/analyses')
       .then(r => r.json())
       .then(setAnalyses)
       .catch(() => showError('Erreur chargement de l\'historique'))

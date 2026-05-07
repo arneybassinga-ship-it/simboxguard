@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { showSuccess, showError } from '../../utils/toast';
 import type { SimAnalysis } from '../../types';
-import { apiUrl } from '../../lib/api';
+import { apiFetch } from '../../lib/api';
 
 const MOTIFS = [
   'Télévendeur professionnel',
@@ -97,7 +97,7 @@ const SuspiciousSims = () => {
 
   const fetch_ = () => {
     setLoading(true);
-    fetch(apiUrl('/api/cdr/analyses'))
+    apiFetch('/api/cdr/analyses')
       .then(r => r.json())
       .then(setAnalyses)
       .finally(() => setLoading(false));
@@ -117,7 +117,7 @@ const SuspiciousSims = () => {
     setPage(1);
     setLoadingHisto(true);
     try {
-      const r = await fetch(apiUrl(`/api/cdr/sim/${encodeURIComponent(item.numero_sim)}/historique`));
+      const r = await apiFetch(`/api/cdr/sim/${encodeURIComponent(item.numero_sim)}/historique`);
       const data = await r.json();
       setHistorique(data);
     } catch {
@@ -129,7 +129,7 @@ const SuspiciousSims = () => {
   const confirmer = async (item: SimAnalysis) => {
     setBusy(true);
     try {
-      const res = await fetch(apiUrl(`/api/cdr/analyses/${item.id}`), {
+      const res = await apiFetch(`/api/cdr/analyses/${item.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -149,7 +149,7 @@ const SuspiciousSims = () => {
     if (!modalRefus) return;
     setBusy(true);
     try {
-      await fetch(apiUrl(`/api/cdr/analyses/${modalRefus.id}`), {
+      await apiFetch(`/api/cdr/analyses/${modalRefus.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ statut: 'refusee', motif_refus: motif, details_refus: details }),
