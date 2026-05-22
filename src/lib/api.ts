@@ -4,9 +4,12 @@ export const API_BASE_URL =
 export const apiUrl = (path: string) =>
   `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
 
-export const getToken = (): string | null => localStorage.getItem('authToken');
-export const setToken = (token: string) => localStorage.setItem('authToken', token);
-export const clearToken = () => localStorage.removeItem('authToken');
+export const getToken = (): string | null => sessionStorage.getItem('authToken');
+export const setToken = (token: string) => sessionStorage.setItem('authToken', token);
+export const clearToken = () => {
+  sessionStorage.removeItem('authToken');
+  localStorage.removeItem('authToken'); // nettoyage si ancienne valeur présente
+};
 
 const getHeaders = (): Record<string, string> => {
   const token = getToken();
@@ -26,7 +29,7 @@ export const apiFetch = async (input: string, init: RequestInit = {}): Promise<R
     const data = await res.clone().json().catch(() => ({}));
     if (data?.error?.includes('Accès refusé') || data?.error?.includes('token')) {
       clearToken();
-      localStorage.removeItem('currentUser');
+      sessionStorage.removeItem('currentUser');
       window.location.href = '/';
     }
   }

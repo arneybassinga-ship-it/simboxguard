@@ -52,7 +52,12 @@ const ArpceBlocking = () => {
     setBusy(false);
   };
 
-  const simsFiltered = sims.filter(s => s.operateur === operateur);
+  const simsDejaActives = new Set(
+    ordres
+      .filter(o => o.operateur === operateur && (o.statut === 'en_attente' || o.statut === 'bloque'))
+      .flatMap(o => Array.isArray(o.liste_sim_json) ? o.liste_sim_json : [])
+  );
+  const simsFiltered = sims.filter(s => s.operateur === operateur && !simsDejaActives.has(s.numero_sim));
 
   return (
     <DashboardLayout title="Ordres de Blocage — ARPCE">

@@ -30,7 +30,7 @@ const getReportItems = (report: AnalystReport) =>
   report.contenu_json.sims_confirmees ?? report.contenu_json.analyses ?? [];
 
 const Reports = () => {
-  const user = JSON.parse(localStorage.getItem('currentUser') || '{}') as User;
+  const user = JSON.parse(sessionStorage.getItem('currentUser') || '{}') as User;
   const [reports, setReports] = useState<AnalystReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);

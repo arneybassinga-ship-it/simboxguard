@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 import { apiFetch } from '../../lib/api';
 
 const AgentAnalyses = () => {
-  const user = JSON.parse(localStorage.getItem('currentUser') || '{}') as User;
+  const user = JSON.parse(sessionStorage.getItem('currentUser') || '{}') as User;
   const operateur = user.operateur;
   const [analyses, setAnalyses] = useState<SimAnalysis[]>([]);
   const [loading, setLoading] = useState(true);

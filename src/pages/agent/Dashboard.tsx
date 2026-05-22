@@ -77,7 +77,7 @@ const AgentDashboard = () => {
   const [simboxes, setSimboxes]   = useState<SimboxDetection[]>([]);
   const [loading, setLoading]     = useState(true);
 
-  const user       = JSON.parse(localStorage.getItem('currentUser') || '{}');
+  const user       = JSON.parse(sessionStorage.getItem('currentUser') || '{}');
   const operateur  = user.operateur ?? 'MTN';
   const heure      = new Date().getHours();
   const salutation = heure < 12 ? 'Bonjour' : heure < 18 ? 'Bon après-midi' : 'Bonsoir';

@@ -34,7 +34,7 @@ const CHAMPS_SYSTEME: { key: string; label: string; required: boolean }[] = [
 const NONE_VALUE = '__none__';
 
 const ImportCDR = () => {
-  const user = JSON.parse(localStorage.getItem('currentUser') || '{}') as User;
+  const user = JSON.parse(sessionStorage.getItem('currentUser') || '{}') as User;
 
   const [step, setStep]         = useState<1 | 2 | 3>(1);
   const [file, setFile]         = useState<File | null>(null);

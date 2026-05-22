@@ -16,11 +16,11 @@ interface DashboardLayoutProps {
 
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) => {
   const navigate = useNavigate();
-  const user = JSON.parse(localStorage.getItem('currentUser') || '{}') as User;
+  const user = JSON.parse(sessionStorage.getItem('currentUser') || '{}') as User;
 
   const handleLogout = () => {
     clearToken();
-    localStorage.removeItem('currentUser');
+    sessionStorage.removeItem('currentUser');
     navigate('/');
   };
 

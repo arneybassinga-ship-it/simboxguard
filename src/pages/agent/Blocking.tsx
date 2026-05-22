@@ -18,7 +18,7 @@ const AgentBlocking = () => {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
-  const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
+  const user = JSON.parse(sessionStorage.getItem('currentUser') || '{}');
   const operateur = user.operateur ?? 'MTN';
 
   useEffect(() => {

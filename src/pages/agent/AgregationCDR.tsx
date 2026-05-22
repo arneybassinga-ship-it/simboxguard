@@ -31,7 +31,7 @@ interface AgregationResult {
 }
 
 const AgregationCDR = () => {
-  const user = JSON.parse(localStorage.getItem('currentUser') || '{}') as User;
+  const user = JSON.parse(sessionStorage.getItem('currentUser') || '{}') as User;
   const operateur = user.operateur || 'TOUS';
 
   const [fichiers, setFichiers] = useState<CdrFile[]>([]);

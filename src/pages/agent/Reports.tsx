@@ -46,7 +46,7 @@ const getSims = (r: Rapport): RapportSim[] =>
   r.contenu_json.sims_confirmees ?? r.contenu_json.analyses ?? [];
 
 const AgentReports = () => {
-  const user = JSON.parse(localStorage.getItem('currentUser') || '{}') as User;
+  const user = JSON.parse(sessionStorage.getItem('currentUser') || '{}') as User;
   const roleKey = user.role === 'AGENT_MTN' ? 'agent_mtn' : 'agent_airtel';
 
   const [rapports, setRapports] = useState<Rapport[]>([]);

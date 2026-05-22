@@ -17,7 +17,7 @@ const Index = () => {
   const lastUserName = localStorage.getItem('lastUserName');
 
   useEffect(() => {
-    const stored = localStorage.getItem('currentUser');
+    const stored = sessionStorage.getItem('currentUser');
     if (stored) {
       try {
         const user = JSON.parse(stored);
@@ -25,7 +25,7 @@ const Index = () => {
         else if (user.role === 'ANALYSTE') navigate('/analyste/dashboard');
         else navigate('/arpce/dashboard');
       } catch {
-        localStorage.removeItem('currentUser');
+        sessionStorage.removeItem('currentUser');
       }
       return;
     }
@@ -69,7 +69,7 @@ const Index = () => {
       if (otp === '123456') {
         const user = pendingUser.current;
         if (user) {
-          localStorage.setItem('currentUser', JSON.stringify(user));
+          sessionStorage.setItem('currentUser', JSON.stringify(user));
           localStorage.setItem('lastUserName', user.nom);
           showSuccess(`Bienvenue, ${user.nom}`);
           redirectUser(user);

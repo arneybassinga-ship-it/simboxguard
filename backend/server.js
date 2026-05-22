@@ -1,5 +1,7 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import multer from 'multer';
 import xlsx from 'xlsx';
 import mysql from 'mysql2/promise';
@@ -8,20 +10,34 @@ import dotenv from 'dotenv';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
-const BCRYPT_ROUNDS = 10;
-const JWT_SECRET = process.env.JWT_SECRET || 'simvigil_fallback_secret';
-const JWT_EXPIRES = '8h';
-
 dotenv.config();
+
+if (!process.env.JWT_SECRET) {
+  throw new Error('JWT_SECRET manquant — définissez-le dans les variables d\'environnement');
+}
+
+const BCRYPT_ROUNDS = 10;
+const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_EXPIRES = '8h';
 
 const app = express();
 
+app.use(helmet());
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:8080',
+  credentials: true,
   methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-User-Id', 'X-User-Nom', 'X-User-Role'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Trop de tentatives de connexion, réessayez dans 15 minutes' },
+});
 
 // Middleware : décode le JWT et remplit req.auditUser
 app.use((req, _res, next) => {
@@ -206,9 +222,18 @@ if (indexes.length === 0) {
 
 /* ================= UPLOAD ================= */
 
+const ALLOWED_MIMES = new Set([
+  'text/csv', 'application/csv', 'text/plain',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+]);
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB max
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) =>
+    ALLOWED_MIMES.has(file.mimetype)
+      ? cb(null, true)
+      : cb(new Error('Type de fichier non autorisé (csv, xlsx, xls uniquement)')),
 });
 
 const normalizeColumnName = (value) => String(value ?? '')
@@ -1220,12 +1245,16 @@ app.patch('/api/rapports/:id/statut', requireRole('ARPCE'), async (req, res) => 
 
 /* ================= GET ROUTES ================= */
 
-app.get('/api/cdr/files', requireRole('AGENT_MTN', 'AGENT_AIRTEL', 'ANALYSTE', 'ARPCE'), async (_req, res) => {
+app.get('/api/cdr/files', requireRole('AGENT_MTN', 'AGENT_AIRTEL', 'ANALYSTE', 'ARPCE'), async (req, res) => {
   const conn = await pool.getConnection();
   try {
-    const [rows] = await conn.query(
-      'SELECT * FROM cdr_files ORDER BY date_import DESC'
-    );
+    const role = req.auditUser?.user_role;
+    let query = 'SELECT * FROM cdr_files';
+    const params = [];
+    if (role === 'AGENT_MTN')      { query += ' WHERE operateur = ?'; params.push('MTN'); }
+    else if (role === 'AGENT_AIRTEL') { query += ' WHERE operateur = ?'; params.push('AIRTEL'); }
+    query += ' ORDER BY date_import DESC';
+    const [rows] = await conn.query(query, params);
     res.json(rows);
   } catch (err) {
     console.error('[CDR FILES ERROR]', err);
@@ -1320,6 +1349,12 @@ app.get('/api/rapports', requireRole('AGENT_MTN', 'AGENT_AIRTEL', 'ANALYSTE', 'A
   const conn = await pool.getConnection();
   try {
     const VALID_OPERATEURS = ['MTN', 'AIRTEL', 'TOUS'];
+    const userRole = req.auditUser?.user_role;
+
+    // Forcer l'opérateur pour les agents — ils ne peuvent voir que leurs propres données
+    let forcedOperateur = operateur;
+    if (userRole === 'AGENT_MTN')      forcedOperateur = 'MTN';
+    else if (userRole === 'AGENT_AIRTEL') forcedOperateur = 'AIRTEL';
 
     let query = 'SELECT * FROM rapports WHERE 1=1';
     const params = [];
@@ -1331,9 +1366,9 @@ app.get('/api/rapports', requireRole('AGENT_MTN', 'AGENT_AIRTEL', 'ANALYSTE', 'A
       if (!REPORT_ROLES.includes(expediteur_role)) return res.status(400).json({ error: 'Expéditeur invalide' });
       query += ' AND expediteur_role = ?'; params.push(expediteur_role);
     }
-    if (operateur) {
-      if (!VALID_OPERATEURS.includes(operateur)) return res.status(400).json({ error: 'Opérateur invalide' });
-      query += ' AND operateur = ?'; params.push(operateur);
+    if (forcedOperateur) {
+      if (!VALID_OPERATEURS.includes(forcedOperateur)) return res.status(400).json({ error: 'Opérateur invalide' });
+      query += ' AND operateur = ?'; params.push(forcedOperateur);
     }
     if (statut_rapport) {
       if (!REPORT_STATUSES.includes(statut_rapport)) return res.status(400).json({ error: 'Statut de rapport invalide' });
@@ -1350,17 +1385,20 @@ app.get('/api/rapports', requireRole('AGENT_MTN', 'AGENT_AIRTEL', 'ANALYSTE', 'A
   }
 });
 
-app.get('/api/ordres', requireRole('AGENT_MTN', 'AGENT_AIRTEL', 'ARPCE'), async (_req, res) => {
+app.get('/api/ordres', requireRole('AGENT_MTN', 'AGENT_AIRTEL', 'ARPCE'), async (req, res) => {
   const conn = await pool.getConnection();
   try {
-    // Marquer automatiquement en "depasse" les ordres en_attente dont le délai est écoulé
+    const role = req.auditUser?.user_role;
     await conn.query(
       `UPDATE ordres_blocage SET statut = 'depasse'
        WHERE statut = 'en_attente' AND date_limite < NOW()`
     );
-    const [rows] = await conn.query(
-      'SELECT * FROM ordres_blocage ORDER BY date_emission DESC'
-    );
+    let query = 'SELECT * FROM ordres_blocage';
+    const params = [];
+    if (role === 'AGENT_MTN')      { query += ' WHERE operateur = ?'; params.push('MTN'); }
+    else if (role === 'AGENT_AIRTEL') { query += ' WHERE operateur = ?'; params.push('AIRTEL'); }
+    query += ' ORDER BY date_emission DESC';
+    const [rows] = await conn.query(query, params);
     res.json(rows.map(r => ({
       ...r,
       liste_sim_json: typeof r.liste_sim_json === 'string'
@@ -1418,8 +1456,21 @@ app.patch('/api/ordres/:id/bloquer', requireRole('AGENT_MTN', 'AGENT_AIRTEL'), a
 
 app.post('/api/ordres/bloquer', requireRole('ARPCE'), async (req, res) => {
   const { rapport_id, operateur, liste_sim, delai_heures = 48 } = req.body;
+  if (!Array.isArray(liste_sim) || liste_sim.length === 0)
+    return res.status(400).json({ error: 'liste_sim vide ou invalide' });
   const conn = await pool.getConnection();
   try {
+    const [ordresActifs] = await conn.query(
+      "SELECT liste_sim_json FROM ordres_blocage WHERE operateur = ? AND statut IN ('en_attente', 'bloque')",
+      [operateur]
+    );
+    const dejaBloquees = new Set(
+      ordresActifs.flatMap(o => { try { return JSON.parse(o.liste_sim_json); } catch { return []; } })
+    );
+    const doublons = liste_sim.filter(s => dejaBloquees.has(s));
+    if (doublons.length > 0)
+      return res.status(409).json({ error: `SIM(s) déjà dans un ordre actif : ${doublons.join(', ')}` });
+
     const ordreId = uuidv4();
     const dateLimite = new Date(Date.now() + delai_heures * 3600 * 1000);
     await conn.query(
@@ -1952,7 +2003,7 @@ app.get('/api/audit', requireRole('ARPCE'), async (req, res) => {
 
 /* ================= AUTHENTIFICATION ================= */
 
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', loginLimiter, async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) {
     return res.status(400).json({ error: 'Email et mot de passe requis' });
@@ -1963,15 +2014,23 @@ app.post('/api/auth/login', async (req, res) => {
       'SELECT id, nom, email, role, operateur, password AS hash FROM users WHERE email = ? AND actif = 1',
       [email]
     );
-    if (!row) return res.status(401).json({ error: 'Identifiants incorrects' });
+    const ip = req.ip || req.headers['x-forwarded-for'] || null;
+    if (!row) {
+      await logAudit(conn, { user_id: 'inconnu', user_nom: 'inconnu', user_role: 'inconnu', action: 'LOGIN_ECHEC', details: { email }, ip });
+      return res.status(401).json({ error: 'Identifiants incorrects' });
+    }
     const valid = await bcrypt.compare(password, row.hash);
-    if (!valid) return res.status(401).json({ error: 'Identifiants incorrects' });
+    if (!valid) {
+      await logAudit(conn, { user_id: row.id, user_nom: row.nom, user_role: row.role, action: 'LOGIN_ECHEC', details: { email }, ip });
+      return res.status(401).json({ error: 'Identifiants incorrects' });
+    }
     const { hash: _h, ...user } = row;
     const token = jwt.sign(
       { id: user.id, nom: user.nom, role: user.role, operateur: user.operateur },
       JWT_SECRET,
       { expiresIn: JWT_EXPIRES }
     );
+    await logAudit(conn, { user_id: user.id, user_nom: user.nom, user_role: user.role, action: 'LOGIN_SUCCES', details: { email }, ip });
     res.json({ user, token });
   } catch (err) {
     console.error('[AUTH LOGIN ERROR]', err);
@@ -2008,6 +2067,12 @@ app.get('/api/emails', requireRole('ARPCE'), async (req, res) => {
 
 const VALID_ROLES = ['AGENT_MTN', 'AGENT_AIRTEL', 'ANALYSTE', 'ARPCE'];
 const VALID_OPERATEURS_USER = ['MTN', 'AIRTEL'];
+const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()\-_=+{};:,<.>]).{8,}$/;
+const validatePassword = (pwd) => {
+  if (!pwd || pwd.length < 8) return 'Mot de passe trop court (8 caractères minimum)';
+  if (!PASSWORD_REGEX.test(pwd)) return 'Le mot de passe doit contenir majuscule, minuscule, chiffre et caractère spécial';
+  return null;
+};
 
 app.get('/api/users', requireRole('ARPCE'), async (_req, res) => {
   const conn = await pool.getConnection();
@@ -2033,6 +2098,8 @@ app.post('/api/users', requireRole('ARPCE'), async (req, res) => {
   if (operateur && !VALID_OPERATEURS_USER.includes(operateur)) {
     return res.status(400).json({ error: 'Opérateur invalide' });
   }
+  const pwdErr = validatePassword(password);
+  if (pwdErr) return res.status(400).json({ error: pwdErr });
   const conn = await pool.getConnection();
   try {
     const id = uuidv4();
@@ -2077,7 +2144,11 @@ app.patch('/api/users/:id', requireRole('ARPCE'), async (req, res) => {
     if (email)    { fields.push('email = ?');    vals.push(email); }
     if (role)     { fields.push('role = ?');     vals.push(role); }
     if (operateur !== undefined) { fields.push('operateur = ?'); vals.push(operateur || null); }
-    if (password) { fields.push('password = ?'); vals.push(await bcrypt.hash(password, BCRYPT_ROUNDS)); }
+    if (password) {
+      const pwdErr = validatePassword(password);
+      if (pwdErr) return res.status(400).json({ error: pwdErr });
+      fields.push('password = ?'); vals.push(await bcrypt.hash(password, BCRYPT_ROUNDS));
+    }
     if (fields.length === 0) return res.status(400).json({ error: 'Aucun champ à mettre à jour' });
     vals.push(id);
     await conn.query(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`, vals);

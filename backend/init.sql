@@ -128,9 +128,4 @@ CREATE TABLE IF NOT EXISTS users (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- Utilisateurs initiaux (correspondant aux comptes de démo)
-INSERT IGNORE INTO users (id, nom, email, role, operateur, password) VALUES
-  ('u1', 'BASSINGA BENIJAH', 'agent.mtn@mtn.cg',      'AGENT_MTN',    'MTN',    'Mtn@2024!'),
-  ('u2', 'BOUINIE BENI',     'agent.airtel@airtel.cg', 'AGENT_AIRTEL', 'AIRTEL', 'Airtel@2024!'),
-  ('u3', 'BATOUMENI RICH',   'analyste@arpce.cg',      'ANALYSTE',     NULL,     'Analyste@1!'),
-  ('u4', 'NGOUBOU ROCH',     'controleur@arpce.cg',    'ARPCE',        NULL,     'Arpce@2024!');
+-- Les utilisateurs initiaux sont insérés avec mots de passe bcrypt par server.js au démarrage.

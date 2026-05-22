@@ -13,9 +13,9 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children, allowedRoles }) 
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('currentUser');
+    const storedUser = sessionStorage.getItem('currentUser');
     if (!storedUser || !getToken()) {
-      localStorage.removeItem('currentUser');
+      sessionStorage.removeItem('currentUser');
       navigate('/');
       return;
     }
@@ -24,7 +24,7 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children, allowedRoles }) 
     try {
       parsedUser = JSON.parse(storedUser) as User;
     } catch {
-      localStorage.removeItem('currentUser');
+      sessionStorage.removeItem('currentUser');
       navigate('/');
       return;
     }
