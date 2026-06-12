@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User } from '../../types';
-import { clearToken } from '../../lib/api';
+import { apiUrl } from '../../lib/api';
 import {
   LayoutDashboard, FileUp, ShieldAlert, FileText,
   LogOut, Bell, User as UserIcon, Activity, Ban, ChevronRight, Database, ScanSearch, ClipboardList, Users
@@ -18,8 +18,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
   const navigate = useNavigate();
   const user = JSON.parse(sessionStorage.getItem('currentUser') || '{}') as User;
 
-  const handleLogout = () => {
-    clearToken();
+  const handleLogout = async () => {
+    await fetch(apiUrl('/api/auth/logout'), { method: 'POST', credentials: 'include' }).catch(() => {});
     sessionStorage.removeItem('currentUser');
     navigate('/');
   };
@@ -83,7 +83,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, titl
       { icon: FileText, label: 'Rapports Opérateurs', path: '/arpce/reports' },
       { icon: Ban, label: 'Suivi Blocages', path: '/arpce/blocking' },
       { icon: Bell, label: 'Sanctions', path: '/arpce/sanctions' },
-      { icon: Users, label: 'Utilisateurs', path: '/arpce/users' },
+      /*{ icon: Users, label: 'Utilisateurs', path: '/arpce/users' },*/
       { icon: ClipboardList, label: "Journal d'audit", path: '/arpce/audit' },
     ],
   };

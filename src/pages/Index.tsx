@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShieldAlert, Mail, Lock, KeyRound, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { ShieldAlert, Mail, KeyRound, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { showSuccess, showError } from '../utils/toast';
-import { apiUrl, setToken } from '../lib/api';
+import { apiUrl } from '../lib/api';
 import { User } from '../types';
 
 const Index = () => {
@@ -13,7 +13,7 @@ const Index = () => {
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const pendingUser = useRef<User | null>(null);
+  const pendingEmail = useRef<string>('');
   const lastUserName = localStorage.getItem('lastUserName');
 
   useEffect(() => {
@@ -27,7 +27,6 @@ const Index = () => {
       } catch {
         sessionStorage.removeItem('currentUser');
       }
-      return;
     }
   }, [navigate]);
 
@@ -43,6 +42,7 @@ const Index = () => {
     try {
       const resp = await fetch(apiUrl('/api/auth/login'), {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
@@ -51,10 +51,14 @@ const Index = () => {
         showError(data.error || 'Identifiants incorrects');
         return;
       }
-      pendingUser.current = data.user as User;
-      setToken(data.token);
+      pendingEmail.current = email;
       setStep('otp');
-      showSuccess('Code OTP envoyé (Simulé : 123456)');
+      if (data.demo_otp) {
+        setOtp(data.demo_otp);
+        showSuccess(`[DÉMO] Code OTP : ${data.demo_otp}`);
+      } else {
+        showSuccess('Code OTP envoyé à votre adresse email');
+      }
     } catch {
       showError('Impossible de contacter le serveur');
     } finally {
@@ -62,23 +66,31 @@ const Index = () => {
     }
   };
 
-  const handleVerifyOtp = (e: React.FormEvent) => {
+  const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setTimeout(() => {
-      if (otp === '123456') {
-        const user = pendingUser.current;
-        if (user) {
-          sessionStorage.setItem('currentUser', JSON.stringify(user));
-          localStorage.setItem('lastUserName', user.nom);
-          showSuccess(`Bienvenue, ${user.nom}`);
-          redirectUser(user);
-        }
-      } else {
-        showError('Code OTP invalide');
+    try {
+      const resp = await fetch(apiUrl('/api/auth/verify-otp'), {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: pendingEmail.current, code: otp }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        showError(data.error || 'Code OTP invalide');
+        return;
       }
+      const user = data.user as User;
+      sessionStorage.setItem('currentUser', JSON.stringify(user));
+      localStorage.setItem('lastUserName', user.nom);
+      showSuccess(`Bienvenue, ${user.nom}`);
+      redirectUser(user);
+    } catch {
+      showError('Impossible de contacter le serveur');
+    } finally {
       setLoading(false);
-    }, 800);
+    }
   };
 
   const inputStyle = {
@@ -109,7 +121,7 @@ const Index = () => {
               </h1>
               <p className="text-slate-400 text-sm font-medium">
                 {step === 'otp'
-                  ? 'Un code de sécurité a été envoyé à votre adresse.'
+                  ? 'Un code de sécurité a été envoyé à votre adresse email.'
                   : lastUserName
                   ? `Bienvenue, ${lastUserName}. Entrez vos identifiants pour continuer.`
                   : 'Veuillez entrer vos identifiants pour continuer.'}
@@ -183,6 +195,7 @@ const Index = () => {
                       value={otp}
                       onChange={(e) => setOtp(e.target.value)}
                       required
+                      autoFocus
                     />
                     <KeyRound className="text-slate-600 group-focus-within:text-blue-400 w-5 h-5 transition-colors" />
                   </div>
@@ -198,7 +211,7 @@ const Index = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setStep('login'); setOtp(''); pendingUser.current = null; }}
+                    onClick={() => { setStep('login'); setOtp(''); pendingEmail.current = ''; }}
                     className="w-full py-2 text-slate-500 hover:text-blue-400 text-xs font-bold uppercase tracking-widest transition-colors"
                   >
                     Retour
