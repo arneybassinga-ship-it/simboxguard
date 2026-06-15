@@ -182,6 +182,12 @@ export const CHAMPS_SYNONYMES = {
     'origine','nature','service','type_appel','type_trafic',
     'sens_appel','type_communication','sens','type_traffic','type',
   ],
+  imei: [
+    'imei','imei_a','imei_calling','imei_device','device_imei',
+    'equipment_identity','mobile_equipment_id','mei','terminal_imei',
+    'imei_caller','imei_source','source_imei','imei_sim',
+    'identificateur_terminal','id_terminal','device_id',
+  ],
 };
 
 const normaliserStatut = (val) => {
@@ -259,4 +265,27 @@ export const isSimValide = (numero, operateur) => {
   if (operateur === 'MTN')    return /^06\d{7,10}$/.test(n);
   if (operateur === 'AIRTEL') return /^0[45]\d{7,10}$/.test(n);
   return true;
+};
+
+/* ========= PARSING IMEI ========= */
+
+export const parseImei = (value) => {
+  if (value === null || value === undefined || value === '') return null;
+  const raw = String(value).trim().replace(/[^\d]/g, '');
+  if (!/^\d{14,16}$/.test(raw)) return null;
+  return raw;
+};
+
+export const normalizeImei = (imei) => {
+  const parsed = parseImei(imei);
+  return parsed || null;
+};
+
+export const parseJsonObject = (value) => {
+  if (value && typeof value === 'object' && !Array.isArray(value)) return value;
+  if (typeof value !== 'string') return {};
+  try { 
+    const p = JSON.parse(value); 
+    return p && typeof p === 'object' && !Array.isArray(p) ? p : {};
+  } catch { return {}; }
 };

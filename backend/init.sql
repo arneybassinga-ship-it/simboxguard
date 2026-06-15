@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS cdr_lines (
   id VARCHAR(36) PRIMARY KEY,
   cdr_id VARCHAR(36) NOT NULL,
   numero_sim VARCHAR(50) NOT NULL,
+  imei VARCHAR(50) NULL,
   numero_appele VARCHAR(50) NOT NULL,
   date_heure DATETIME NOT NULL,
   duree_secondes INT NOT NULL,
@@ -88,7 +89,7 @@ CREATE TABLE IF NOT EXISTS sanctions (
 -- Correction : ajout nb_lignes si absent
 ALTER TABLE cdr_files ADD COLUMN IF NOT EXISTS nb_lignes INT DEFAULT 0;
 
--- Table des simbox détectées (groupes de SIM suspects)
+-- Table des simbox détectées (groupes de SIM suspects) — MODIFIÉE POUR INCLURE IMEI
 CREATE TABLE IF NOT EXISTS simbox_detectees (
   id VARCHAR(36) PRIMARY KEY,
   periode_debut DATE NOT NULL,
@@ -96,6 +97,7 @@ CREATE TABLE IF NOT EXISTS simbox_detectees (
   operateur VARCHAR(20) NOT NULL,
   agent_id VARCHAR(50) NOT NULL,
   sims_json TEXT NOT NULL,
+  imei_par_sim_json TEXT NOT NULL,
   nb_sims INT NOT NULL,
   similarite_moyenne FLOAT NOT NULL,
   score_rotation FLOAT NOT NULL,

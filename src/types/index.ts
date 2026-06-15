@@ -83,6 +83,7 @@ export interface SimboxDetection {
   motif_rejet?: string;
   date_detection: string;
   contacts_communs: string[];
+   imei_par_sim?: Record<string, string[]>;
 }
 
 export interface Sanction {

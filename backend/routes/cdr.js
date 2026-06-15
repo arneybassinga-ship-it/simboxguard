@@ -6,7 +6,7 @@ import { requireRole } from '../middleware/auth.js';
 import {
   upload, parseCdrFile, toDateTimeString, parseDurationSeconds,
   detecterMapping, normalizeNumeroCongo, isSimValide,
-  infererStatutAppel, infererOrigine,
+  infererStatutAppel, infererOrigine, normalizeImei,
 } from '../lib/cdrParser.js';
 
 const router = Router();
@@ -68,9 +68,14 @@ router.post('/api/cdr/upload', requireRole('AGENT_MTN', 'AGENT_AIRTEL'), upload.
     const duree_secondes = parseDurationSeconds(row[mapping.duree_secondes]);
     const statut = infererStatutAppel(mapping.statut_appel ? row[mapping.statut_appel] : null, duree_secondes);
     const origine = infererOrigine(mapping.origine ? row[mapping.origine] : null, numero_appele);
+    
+    // NOUVEAU : Parser l'IMEI si présent
+    const imei = mapping.imei ? normalizeImei(row[mapping.imei]) : null;
 
     if (!date_heure || duree_secondes === null || !statut || !origine) { lignesRejetees++; continue; }
-    cdrLineEntities.push([uuidv4(), cdrId, numero_sim, numero_appele, date_heure, Math.round(duree_secondes), statut, origine, operateur.toUpperCase()]);
+    
+    // MODIFIÉ : Inclure imei dans les données insérées
+    cdrLineEntities.push([uuidv4(), cdrId, numero_sim, imei, numero_appele, date_heure, Math.round(duree_secondes), statut, origine, operateur.toUpperCase()]);
   }
 
   const totalLignes = rows.length;
@@ -89,7 +94,10 @@ router.post('/api/cdr/upload', requireRole('AGENT_MTN', 'AGENT_AIRTEL'), upload.
     if (existing.length > 0) { await conn.rollback(); conn.release(); return res.status(409).json({ error: `Ce fichier a déjà été importé : "${file.originalname}".` }); }
 
     await conn.query('INSERT INTO cdr_files VALUES (?, ?, ?, ?, ?, ?, ?)', [cdrId, file.originalname, dateImport, cdrLineEntities.length, 'en_attente', operateur.toUpperCase(), agent_id]);
+    
+    // MODIFIÉ : Insérer les CDRs avec IMEI
     await conn.query('INSERT INTO cdr_lines VALUES ?', [cdrLineEntities]);
+    
     await conn.commit();
     await logAudit(conn, { ...req.auditUser, action: 'IMPORT_CDR', entite_type: 'cdr_file', entite_id: cdrId, operateur: operateur.toUpperCase(), details: { fichier: file.originalname, nb_lignes: cdrLineEntities.length, nb_rejetes: lignesRejetees } });
     res.status(201).json({ cdr_id: cdrId, nb_lignes: cdrLineEntities.length, nb_lignes_rejetees: lignesRejetees });
@@ -159,13 +167,14 @@ router.get('/api/cdr/sim/:msisdn/historique', requireRole('ANALYSTE', 'ARPCE'), 
     const internationaux = lignes.filter(l => l.origine === 'international').length;
     const numerosAppeles = new Set(lignes.map(l => l.numero_appele)).size;
     const dureeMax = Math.max(...lignes.map(l => l.duree_secondes || 0), 0);
+    const imeis = new Set(lignes.map(l => l.imei).filter(i => i));
     let appelsParHeure = 0;
     if (total > 1) {
       const dates = lignes.map(l => new Date(l.date_heure).getTime());
       const dureesPeriode = (Math.max(...dates) - Math.min(...dates)) / 3600000;
       appelsParHeure = dureesPeriode > 0 ? Math.round(total / dureesPeriode) : total;
     }
-    res.json({ stats: { total, totalDuree, dureeMoy: total > 0 ? Math.round(totalDuree / total) : 0, dureeMax, aboutis, echoues: total - aboutis, tauxAboutissement: total > 0 ? Math.round((aboutis / total) * 100) : 0, internationaux, nationaux: total - internationaux, tauxInternational: total > 0 ? Math.round((internationaux / total) * 100) : 0, numerosAppeles, appelsParHeure }, lignes });
+    res.json({ stats: { total, totalDuree, dureeMoy: total > 0 ? Math.round(totalDuree / total) : 0, dureeMax, aboutis, echoues: total - aboutis, tauxAboutissement: total > 0 ? Math.round((aboutis / total) * 100) : 0, internationaux, nationaux: total - internationaux, tauxInternational: total > 0 ? Math.round((internationaux / total) * 100) : 0, numerosAppeles, imeis: [...imeis], appelsParHeure }, lignes });
   } catch (err) {
     console.error('[SIM HISTORIQUE ERROR]', err);
     res.status(500).json({ error: 'Erreur serveur' });

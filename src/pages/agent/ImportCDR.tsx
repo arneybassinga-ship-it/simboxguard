@@ -29,6 +29,7 @@ const CHAMPS_SYSTEME: { key: string; label: string; required: boolean }[] = [
   { key: 'duree_secondes',  label: 'Durée (secondes)',           required: true  },
   { key: 'statut_appel',    label: 'Statut appel',               required: false },
   { key: 'origine',         label: "Origine (local / international)", required: false },
+  { key: 'imei',            label: 'IMEI (identifiant terminal)',  required: false }
 ];
 
 const NONE_VALUE = '__none__';

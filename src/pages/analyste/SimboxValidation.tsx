@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, XCircle, Users, Filter, ChevronDown, ChevronUp } from 'lucide-react';
+import { CheckCircle, XCircle, Users, Filter, ChevronDown, ChevronUp, Cpu } from 'lucide-react';
 import { showSuccess, showError } from '../../utils/toast';
 import { SimboxDetection } from '../../types';
 import { cn } from '@/lib/utils';
@@ -22,6 +22,11 @@ const MOTIFS_REJET = [
   'Autre (préciser)',
 ];
 
+// ─── NOTE : ajouter imei_par_sim dans le type SimboxDetection (types/index.ts) ───
+// imei_par_sim?: Record<string, string[]>
+// Exemple : { "242069001234": ["358000000000001", "358000000000002"] }
+// ─────────────────────────────────────────────────────────────────────────────────
+
 const normalizeItem = (item: Partial<SimboxDetection>): SimboxDetection => ({
   id: item.id ?? '',
   periode_debut: item.periode_debut ?? '',
@@ -38,6 +43,8 @@ const normalizeItem = (item: Partial<SimboxDetection>): SimboxDetection => ({
   motif_rejet: item.motif_rejet,
   date_detection: item.date_detection ?? '',
   contacts_communs: Array.isArray(item.contacts_communs) ? item.contacts_communs : [],
+  // Nouveau champ IMEI
+  imei_par_sim: item.imei_par_sim && typeof item.imei_par_sim === 'object' ? item.imei_par_sim : {},
 });
 
 const SimboxCard = ({
@@ -50,6 +57,8 @@ const SimboxCard = ({
 }) => {
   const [open, setOpen] = useState(false);
   const cfg = NIVEAU_CONFIG[item.niveau];
+
+  const hasImei = item.imei_par_sim && Object.keys(item.imei_par_sim).length > 0;
 
   return (
     <div className={cn('rounded-xl border p-4', cfg.bg, cfg.border)}>
@@ -102,18 +111,48 @@ const SimboxCard = ({
 
       {open && (
         <div className="mt-3 pt-3 border-t border-white/10 space-y-3">
+
+          {/* MSISDN + IMEI associés */}
           <div>
             <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
               <Users size={10} /> MSISDN du groupe
             </p>
-            <div className="flex flex-wrap gap-1.5">
-              {item.sims.map(sim => (
-                <span key={sim} className="font-mono text-[10px] bg-white/5 text-slate-300 px-2 py-0.5 rounded border border-white/10">
-                  {sim}
-                </span>
-              ))}
+            <div className="space-y-1.5">
+              {item.sims.map(sim => {
+                const imeis = hasImei ? (item.imei_par_sim![sim] ?? []) : [];
+                return (
+                  <div key={sim} className="flex flex-wrap items-center gap-1.5">
+                    {/* MSISDN */}
+                    <span className="font-mono text-[10px] bg-white/5 text-slate-300 px-2 py-0.5 rounded border border-white/10">
+                      {sim}
+                    </span>
+                    {/* IMEI(s) associés */}
+                    {imeis.length > 0 && (
+                      <>
+                        <span className="text-[9px] text-slate-600">→</span>
+                        {imeis.map(imei => (
+                          <span
+                            key={imei}
+                            title={`IMEI associé à ${sim}`}
+                            className="font-mono text-[10px] bg-purple-500/10 text-purple-300 px-2 py-0.5 rounded border border-purple-500/20 flex items-center gap-1"
+                          >
+                            <Cpu size={8} />
+                            {imei}
+                          </span>
+                        ))}
+                      </>
+                    )}
+                    {/* Aucun IMEI disponible pour cette SIM */}
+                    {hasImei && imeis.length === 0 && (
+                      <span className="text-[9px] text-slate-600 italic">IMEI inconnu</span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
+
+          {/* Contacts communs */}
           {item.contacts_communs.length > 0 && (
             <div>
               <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1.5">
@@ -131,6 +170,7 @@ const SimboxCard = ({
               </div>
             </div>
           )}
+
           {item.motif_rejet && (
             <p className="text-xs text-slate-400 italic">Motif rejet : {item.motif_rejet}</p>
           )}

@@ -20,11 +20,18 @@ const getTimeSlot = (datetime) => {
 };
 
 const detecterSimbox = (lines) => {
-  const simContacts = {}, simSlotSet = {};
+  const simContacts = {}, simSlotSet = {}, simImeis = {};
+  
   lines.forEach(l => {
-    if (!simContacts[l.numero_sim]) { simContacts[l.numero_sim] = new Set(); simSlotSet[l.numero_sim] = new Set(); }
+    if (!simContacts[l.numero_sim]) { 
+      simContacts[l.numero_sim] = new Set(); 
+      simSlotSet[l.numero_sim] = new Set(); 
+      simImeis[l.numero_sim] = new Set();
+    }
     simContacts[l.numero_sim].add(l.numero_appele);
     simSlotSet[l.numero_sim].add(getTimeSlot(l.date_heure));
+    // NOUVEAU : Collecter les IMEIs associés à chaque SIM
+    if (l.imei) simImeis[l.numero_sim].add(l.imei);
   });
 
   const eligibles = Object.keys(simContacts).filter(s => simContacts[s].size >= MIN_CONTACTS_SIM);
@@ -83,7 +90,23 @@ const detecterSimbox = (lines) => {
     if (scoreGlobal >= 70) niveau = 'confirme';
     else if (scoreGlobal >= 50) niveau = 'probable';
 
-    return { id: uuidv4(), sims: groupe, nb_sims: groupe.length, similarite_moyenne: Math.round(jaccardMoyen * 100), score_rotation: Math.round(scoreRotation), score_global: scoreGlobal, niveau, contacts_communs: [...contactsCommuns].slice(0, 20) };
+    // NOUVEAU : Créer un mapping SIM → IMEIs pour ce groupe
+    const imeiParSim = {};
+    groupe.forEach(sim => {
+      imeiParSim[sim] = [...simImeis[sim]];
+    });
+
+    return { 
+      id: uuidv4(), 
+      sims: groupe, 
+      nb_sims: groupe.length, 
+      similarite_moyenne: Math.round(jaccardMoyen * 100), 
+      score_rotation: Math.round(scoreRotation), 
+      score_global: scoreGlobal, 
+      niveau, 
+      contacts_communs: [...contactsCommuns].slice(0, 20),
+      imei_par_sim: imeiParSim  // NOUVEAU : IMEIs associés
+    };
   }).filter(g => g.score_global >= MIN_SCORE_GLOBAL);
 };
 
@@ -107,7 +130,7 @@ router.post('/api/cdr/agreger', requireRole('AGENT_MTN', 'AGENT_AIRTEL'), async 
     const validIds = fichiers.map(f => f.id);
     const validPlaceholders = validIds.map(() => '?').join(',');
     const [lines] = await conn.query(
-      `SELECT DISTINCT cl.numero_sim, cl.numero_appele, cl.date_heure, cl.duree_secondes, cl.statut_appel, cl.origine, cl.operateur
+      `SELECT DISTINCT cl.numero_sim, cl.imei, cl.numero_appele, cl.date_heure, cl.duree_secondes, cl.statut_appel, cl.origine, cl.operateur
        FROM cdr_lines cl WHERE cl.cdr_id IN (${validPlaceholders})`, validIds
     );
     if (lines.length === 0) { await conn.rollback(); return res.status(400).json({ error: 'Aucune ligne CDR dans les fichiers sélectionnés' }); }
@@ -153,8 +176,9 @@ router.post('/api/cdr/detecter-simbox', requireRole('AGENT_MTN', 'AGENT_AIRTEL')
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
+    // MODIFIÉ : Inclure imei dans la requête
     const [lines] = await conn.query(
-      `SELECT cl.numero_sim, cl.numero_appele, cl.date_heure FROM cdr_lines cl
+      `SELECT cl.numero_sim, cl.imei, cl.numero_appele, cl.date_heure FROM cdr_lines cl
        WHERE cl.operateur = ? AND cl.date_heure >= ? AND cl.date_heure < DATE_ADD(?, INTERVAL 1 DAY)`,
       [operateur, date_debut, date_fin]
     );
@@ -166,9 +190,10 @@ router.post('/api/cdr/detecter-simbox', requireRole('AGENT_MTN', 'AGENT_AIRTEL')
       [operateur, agent_id, date_debut, date_fin]
     );
     for (const g of groupes) {
+      // MODIFIÉ : Insérer aussi imei_par_sim
       await conn.query(
-        `INSERT INTO simbox_detectees (id, periode_debut, periode_fin, operateur, agent_id, sims_json, nb_sims, similarite_moyenne, score_rotation, score_global, niveau, contacts_communs_json) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
-        [g.id, date_debut, date_fin, operateur, agent_id, JSON.stringify(g.sims), g.nb_sims, g.similarite_moyenne, g.score_rotation, g.score_global, g.niveau, JSON.stringify(g.contacts_communs)]
+        `INSERT INTO simbox_detectees (id, periode_debut, periode_fin, operateur, agent_id, sims_json, imei_par_sim_json, nb_sims, similarite_moyenne, score_rotation, score_global, niveau, contacts_communs_json) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        [g.id, date_debut, date_fin, operateur, agent_id, JSON.stringify(g.sims), JSON.stringify(g.imei_par_sim), g.nb_sims, g.similarite_moyenne, g.score_rotation, g.score_global, g.niveau, JSON.stringify(g.contacts_communs)]
       );
     }
     await conn.commit();
@@ -201,7 +226,18 @@ router.get('/api/simbox', requireRole('AGENT_MTN', 'AGENT_AIRTEL', 'ANALYSTE', '
     }
     query += ' ORDER BY date_detection DESC';
     const [rows] = await conn.query(query, params);
-    res.json(rows.map(r => ({ ...r, sims: parseJsonArray(r.sims_json), contacts_communs: parseJsonArray(r.contacts_communs_json) })));
+    // MODIFIÉ : Parser aussi imei_par_sim_json
+    res.json(rows.map(r => ({ 
+      ...r, 
+      sims: parseJsonArray(r.sims_json), 
+      imei_par_sim: (() => {
+  try { 
+    const p = JSON.parse(r.imei_par_sim_json); 
+    return p && typeof p === 'object' && !Array.isArray(p) ? p : {};
+  } catch { return {}; }
+})(),
+      contacts_communs: parseJsonArray(r.contacts_communs_json) 
+    })));
   } catch (err) {
     console.error('[SIMBOX GET ERROR]', err);
     res.status(500).json({ error: 'Erreur serveur' });
